@@ -14,3 +14,5 @@ export const INITIAL_STATE: AssistantState = 'idle';
 export function isAssistantState(value: unknown): value is AssistantState {
   return typeof value === 'string' && (ASSISTANT_STATES as readonly string[]).includes(value);
 }
+
+export * from './core.js';
