@@ -59,4 +59,25 @@ export const STYLES = `
     background: linear-gradient(135deg, #5b8def, #9b6bdf);
   }
   .hidden { display: none; }
+
+  dialog[part='dialog'] {
+    position: absolute;
+    bottom: calc(var(--tess-size) + 12px);
+    right: 0;
+    width: min(360px, calc(100vw - 32px));
+    height: min(480px, calc(100vh - 32px));
+    margin: 0;
+    padding: 16px;
+    border: 1px solid var(--tess-border);
+    border-radius: 16px;
+    background: var(--tess-bg);
+    color: var(--tess-fg);
+    box-shadow: var(--tess-shadow);
+  }
+  :host([position^='top']) dialog[part='dialog'] {
+    bottom: auto;
+    top: calc(var(--tess-size) + 12px);
+  }
+  :host([position$='left']) dialog[part='dialog'] { right: auto; left: 0; }
+  dialog[part='dialog']:not([open]) { display: none; }
 `;

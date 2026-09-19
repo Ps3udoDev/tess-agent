@@ -29,8 +29,6 @@ export class TessAssistantElement extends HTMLElement {
   #core: TessCore | undefined;
   #rive: TessRiveHandle | undefined;
   #launcher: HTMLButtonElement | undefined;
-  // Lo crea la Task 8; aquí se declara para que el manejador de `locale`
-  // pueda actualizar su etiqueta sin referencias adelantadas.
   #dialog: HTMLDialogElement | undefined;
   #fallback: HTMLSpanElement | undefined;
   #unsubscribe: (() => void) | undefined;
@@ -100,7 +98,25 @@ export class TessAssistantElement extends HTMLElement {
     fallback.setAttribute('aria-hidden', 'true');
     launcher.append(canvas, fallback);
 
-    root.append(style, launcher);
+    const dialog = document.createElement('dialog');
+    dialog.setAttribute('part', 'dialog');
+    dialog.setAttribute('aria-label', labelsFor(this.getAttribute('locale')).dialog);
+    dialog.id = `tess-dialog-${Math.random().toString(36).slice(2, 8)}`;
+    // El panel de conversación llega en Fase 2: aquí solo va la cáscara.
+    dialog.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeChat();
+      }
+    });
+    launcher.setAttribute('aria-controls', dialog.id);
+    launcher.addEventListener('click', () => {
+      if (dialog.open) this.closeChat();
+      else this.openChat();
+    });
+    this.#dialog = dialog;
+
+    root.append(style, launcher, dialog);
 
     this.#launcher = launcher;
     this.#fallback = fallback;
@@ -164,6 +180,38 @@ export class TessAssistantElement extends HTMLElement {
     }
   }
 
+  /**
+   * Abre el diálogo con `show()`, no `showModal()`: la página sigue siendo
+   * usable mientras el chat está abierto. Como consecuencia, Escape y el
+   * retorno de foco al cerrar hay que gestionarlos a mano (ver `closeChat`
+   * y el listener de `keydown` en `connectedCallback`).
+   */
+  openChat(): void {
+    const dialog = this.#dialog;
+    if (!dialog || dialog.open) return;
+    dialog.show();
+    this.#launcher?.setAttribute('aria-expanded', 'true');
+    this.setAttribute('open', '');
+    this.#rive?.greet();
+    dialog
+      .querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      )
+      ?.focus();
+    this.dispatchEvent(new CustomEvent('tess:open', { bubbles: true, composed: true }));
+  }
+
+  /** Cierra el diálogo y devuelve el foco al launcher que lo abrió. */
+  closeChat(): void {
+    const dialog = this.#dialog;
+    if (!dialog || !dialog.open) return;
+    dialog.close();
+    this.#launcher?.setAttribute('aria-expanded', 'false');
+    this.removeAttribute('open');
+    this.#launcher?.focus();
+    this.dispatchEvent(new CustomEvent('tess:close', { bubbles: true, composed: true }));
+  }
+
   destroy(): void {
     this.#unsubscribe?.();
     this.#rive?.destroy();
@@ -172,6 +220,7 @@ export class TessAssistantElement extends HTMLElement {
     this.#rive = undefined;
     this.#core = undefined;
     this.#launcher = undefined;
+    this.#dialog = undefined;
     this.#fallback = undefined;
     if (this.shadowRoot) this.shadowRoot.replaceChildren();
   }

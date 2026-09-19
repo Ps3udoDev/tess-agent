@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import * as tessCoreModule from '@teams4soft/tess-core';
 import { mountTessRive } from '@teams4soft/tess-rive';
 import type { TessPosition, TessSize, TessTheme } from '@teams4soft/tess-types';
 import { TAG_NAME } from './index.js';
@@ -86,10 +87,35 @@ describe('teams4soft-assistant', () => {
     expect(seen).toHaveBeenCalledTimes(1);
   });
 
-  it('destroy deja el shadow root vacío y desconecta el core', () => {
+  it('destroy detiene el core y el avatar Rive, y deja el shadow root vacío', () => {
+    // Se envuelve `createTessCore` real (no el módulo mockeado, que es solo
+    // tess-rive) para comprobar que `destroy()` realmente apaga el core, no
+    // solo que la referencia local queda en `undefined`.
+    const originalCreateTessCore = tessCoreModule.createTessCore;
+    let capturedCore: ReturnType<typeof originalCreateTessCore> | undefined;
+    const createTessCoreSpy = vi
+      .spyOn(tessCoreModule, 'createTessCore')
+      .mockImplementation((options) => {
+        const core = originalCreateTessCore(options);
+        vi.spyOn(core, 'destroy');
+        capturedCore = core;
+        return core;
+      });
+
     const element = create();
+    const canvas = element.shadowRoot!.querySelector('canvas');
+    const riveCallIndex = vi
+      .mocked(mountTessRive)
+      .mock.calls.findIndex((entry) => entry[0]?.canvas === canvas);
+    const riveHandle = vi.mocked(mountTessRive).mock.results[riveCallIndex]?.value;
+
     element.destroy();
+
     expect(element.shadowRoot!.querySelector('button[part="launcher"]')).toBeNull();
+    expect(capturedCore?.destroy).toHaveBeenCalledTimes(1);
+    expect(riveHandle?.destroy).toHaveBeenCalledTimes(1);
+
+    createTessCoreSpy.mockRestore();
   });
 
   it('expone theme, size y position como propiedades reflejadas al atributo', () => {
