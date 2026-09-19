@@ -8,6 +8,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
 import { loadEnv, type TessEnv } from './env.js';
 import { healthRoute } from './http/health.route.js';
+import { visitorSessionsRoute } from './http/visitor-sessions.route.js';
 import { supabasePlugin } from './plugins/supabase.js';
 import { authPlugin } from './plugins/auth.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
@@ -31,6 +32,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   await app.register(authPlugin);
   await app.register(rateLimitPlugin);
   await app.register(healthRoute);
+  await app.register(visitorSessionsRoute);
 
   return app;
 }

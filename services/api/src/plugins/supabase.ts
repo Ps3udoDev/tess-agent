@@ -38,6 +38,15 @@ export interface AuditEventInput {
   metadata?: Record<string, unknown>;
 }
 
+export interface WidgetSettings {
+  project_id: string;
+  organization_id: string;
+  allowed_origins: string[];
+  visitor_access: boolean;
+  collect_leads_from_members: boolean;
+  greeting: string | null;
+}
+
 async function plugin(app: FastifyInstance): Promise<void> {
   const { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY } = app.env;
 
@@ -107,6 +116,19 @@ async function plugin(app: FastifyInstance): Promise<void> {
     // Una auditoría que falla no debe tumbar la petición, pero sí quedar en log.
     if (error) app.log.error({ err: error.message }, 'fallo al auditar');
   });
+
+  // 4 de 4: se lee antes de que exista un JWT, en el acto de acuñarlo.
+  app.decorate('readWidgetSettings', async (publicKey: string) => {
+    const { data } = await serviceClient
+      .from('project_widget_settings')
+      .select(
+        'project_id, organization_id, allowed_origins, visitor_access, collect_leads_from_members, greeting',
+      )
+      .eq('public_key', publicKey)
+      .maybeSingle();
+
+    return data ?? null;
+  });
 }
 
 export const supabasePlugin = fp(plugin, { name: 'supabase' });
@@ -117,5 +139,6 @@ declare module 'fastify' {
     mintVisitorSession(): Promise<VisitorSession>;
     insertAssistantMessage(input: AssistantMessageInput): Promise<{ id: string }>;
     recordAuditEvent(input: AuditEventInput): Promise<void>;
+    readWidgetSettings(publicKey: string): Promise<WidgetSettings | null>;
   }
 }
