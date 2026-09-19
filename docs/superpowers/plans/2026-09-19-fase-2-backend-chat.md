@@ -306,7 +306,7 @@ Esperado: reset completo sin errores, incluyendo `0008`.
 - [ ] **Step 3: Verificar que el trigger deriva la organización**
 
 ```bash
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "
+docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
   insert into public.organizations (slug, name) values ('t-org', 'T Org');
   insert into public.projects (organization_id, slug, name)
     select id, 't-proj', 'T Proj' from public.organizations where slug = 't-org';
@@ -501,7 +501,7 @@ Esperado: reset limpio incluyendo `0009`.
 - [ ] **Step 3: Verificar que el helper no entra en recursión**
 
 ```bash
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "
+docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
   select public.project_accepts_visitors(gen_random_uuid()) as sin_proyecto;
 "
 ```
@@ -512,7 +512,7 @@ devolviera un error de política, el `security definer` no se aplicó.
 - [ ] **Step 4: Verificar que `anon` sigue sin acceso**
 
 ```bash
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "
+docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
   select has_table_privilege('anon', 'public.leads', 'select') as anon_lee_leads,
          has_table_privilege('anon', 'public.project_widget_settings', 'select') as anon_lee_settings;
 "
@@ -621,7 +621,7 @@ on conflict (project_id) do update set system_prompt = excluded.system_prompt;
 
 ```bash
 pnpm supabase:reset
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -c "
+docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
   select w.public_key, w.visitor_access, array_length(w.allowed_origins, 1) as origenes,
          length(a.system_prompt) as prompt_chars
   from public.project_widget_settings w
@@ -6457,7 +6457,7 @@ PUBLIC_TESS_PROJECT_ID=
 
 ```bash
 pnpm supabase:start
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -c \
+docker exec -i supabase_db_tess psql -U postgres -d postgres -t -c \
   "select project_id from public.project_widget_settings where public_key = 'pk_dev_tess_local_0001';"
 # Copiar ese UUID a apps/demo-svelte/.env como PUBLIC_TESS_PROJECT_ID
 pnpm --filter @teams4soft/api dev
@@ -6482,7 +6482,7 @@ TOKEN=$(curl -s -X POST http://localhost:8080/v1/visitor-sessions \
   -H 'Origin: http://localhost:5173' -H 'Content-Type: application/json' \
   -d '{"publicKey":"pk_dev_tess_local_0001"}' | sed -n 's/.*"accessToken":"\([^"]*\)".*/\1/p')
 
-PROYECTO=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -c \
+PROYECTO=$(docker exec -i supabase_db_tess psql -U postgres -d postgres -t -A -c \
   "select project_id from public.project_widget_settings where public_key = 'pk_dev_tess_local_0001';")
 
 CONV=$(curl -s -X POST "http://localhost:8080/v1/projects/$PROYECTO/conversations" \
@@ -6503,7 +6503,7 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8080/v1/visito
   -H 'Origin: https://malicioso.example' -H 'Content-Type: application/json' \
   -d '{"publicKey":"pk_dev_tess_local_0001"}'
 
-psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -t -A -c \
+docker exec -i supabase_db_tess psql -U postgres -d postgres -t -A -c \
   "select count(*) from auth.users where is_anonymous;"
 ```
 
