@@ -7,9 +7,14 @@ import {
   SIZES,
   THEMES,
   isRequestedState,
+  type AssistantState,
+  type RequestedState,
   type TessAssistantConfig,
   type TessErrorDetail,
+  type TessPosition,
+  type TessSize,
   type TessStateDetail,
+  type TessTheme,
 } from '@teams4soft/tess-types';
 import { labelsFor } from './labels.js';
 import { STYLES } from './styles.js';
@@ -31,8 +36,45 @@ export class TessAssistantElement extends HTMLElement {
   #unsubscribe: (() => void) | undefined;
   #config: TessAssistantConfig = {};
 
-  get state(): string {
+  // `state` conserva su semántica de lectura actual: expone el estado
+  // EFECTIVO del core (puede diferir de lo pedido, p. ej. bajo `offline`).
+  // El setter, en cambio, solo puede pedir un `RequestedState`: escribe el
+  // atributo y deja que `attributeChangedCallback` reutilice su validación.
+  get state(): AssistantState {
     return this.#core?.getSnapshot().state ?? 'idle';
+  }
+
+  set state(value: RequestedState) {
+    this.setAttribute('state', value);
+  }
+
+  get theme(): TessTheme {
+    const value = this.getAttribute('theme');
+    return value !== null && THEMES.includes(value as TessTheme) ? (value as TessTheme) : 'auto';
+  }
+
+  set theme(value: TessTheme) {
+    this.setAttribute('theme', value);
+  }
+
+  get size(): TessSize {
+    const raw = Number(this.getAttribute('size'));
+    return SIZES.includes(raw as TessSize) ? (raw as TessSize) : DEFAULT_SIZE;
+  }
+
+  set size(value: TessSize) {
+    this.setAttribute('size', String(value));
+  }
+
+  get position(): TessPosition {
+    const value = this.getAttribute('position');
+    return value !== null && POSITIONS.includes(value as TessPosition)
+      ? (value as TessPosition)
+      : DEFAULT_POSITION;
+  }
+
+  set position(value: TessPosition) {
+    this.setAttribute('position', value);
   }
 
   connectedCallback(): void {
@@ -85,7 +127,15 @@ export class TessAssistantElement extends HTMLElement {
       },
     });
 
+    // Se validan sin condición, no solo cuando faltaba el atributo: un
+    // elemento parseado desde HTML recibe sus atributos (y por tanto
+    // `attributeChangedCallback`) ANTES de `connectedCallback`, así que
+    // `#core` todavía no existe cuando llega un valor inválido en el
+    // marcado inicial y esa validación se pierde. Repetirla aquí, al final,
+    // cierra esa ventana para los tres atributos con enum cerrado.
     this.#syncSize();
+    this.#syncTheme();
+    this.#syncPosition();
   }
 
   disconnectedCallback(): void {
@@ -99,12 +149,8 @@ export class TessAssistantElement extends HTMLElement {
       else this.#emitError('bad-state', new Error(`Estado desconocido: ${value}`));
     }
     if (name === 'size') this.#syncSize();
-    if (name === 'theme' && value !== null && !THEMES.includes(value as never)) {
-      this.setAttribute('theme', 'auto');
-    }
-    if (name === 'position' && value !== null && !POSITIONS.includes(value as never)) {
-      this.setAttribute('position', DEFAULT_POSITION);
-    }
+    if (name === 'theme') this.#syncTheme();
+    if (name === 'position') this.#syncPosition();
     if (name === 'api-url') {
       if (value === null) delete this.#config.apiUrl;
       else this.#config.apiUrl = value;
@@ -132,12 +178,26 @@ export class TessAssistantElement extends HTMLElement {
 
   #syncSize(): void {
     const raw = Number(this.getAttribute('size'));
-    if (!SIZES.includes(raw as never)) {
+    if (!SIZES.includes(raw as TessSize)) {
       this.#emitError('bad-size', new Error(`Tamaño no soportado: ${this.getAttribute('size')}`));
       this.setAttribute('size', String(DEFAULT_SIZE));
       return;
     }
     this.style.setProperty('--tess-size', `${raw}px`);
+  }
+
+  #syncTheme(): void {
+    const value = this.getAttribute('theme');
+    if (value !== null && !THEMES.includes(value as TessTheme)) {
+      this.setAttribute('theme', 'auto');
+    }
+  }
+
+  #syncPosition(): void {
+    const value = this.getAttribute('position');
+    if (value !== null && !POSITIONS.includes(value as TessPosition)) {
+      this.setAttribute('position', DEFAULT_POSITION);
+    }
   }
 
   #emitError(code: string, error: Error): void {

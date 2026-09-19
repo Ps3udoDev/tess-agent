@@ -1,13 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mountTessRive } from '@teams4soft/tess-rive';
+import type { TessPosition, TessSize, TessTheme } from '@teams4soft/tess-types';
 import { TAG_NAME } from './index.js';
 
-function create(): HTMLElement & { state: string; destroy(): void } {
-  const element = document.createElement(TAG_NAME) as HTMLElement & {
-    state: string;
-    destroy(): void;
-  };
+type TessAssistantTestElement = HTMLElement & {
+  state: string;
+  theme: TessTheme;
+  size: TessSize;
+  position: TessPosition;
+  destroy(): void;
+};
+
+function create(): TessAssistantTestElement {
+  const element = document.createElement(TAG_NAME) as TessAssistantTestElement;
   document.body.append(element);
   return element;
+}
+
+/** Crea el elemento SIN conectarlo, para reproducir el orden de "upgrade":
+ * un custom element parseado desde HTML recibe sus atributos (y por tanto
+ * `attributeChangedCallback`) antes de `connectedCallback`. */
+function createDisconnected(): TessAssistantTestElement {
+  return document.createElement(TAG_NAME) as TessAssistantTestElement;
 }
 
 beforeEach(async () => {
@@ -76,5 +90,53 @@ describe('teams4soft-assistant', () => {
     const element = create();
     element.destroy();
     expect(element.shadowRoot!.querySelector('button[part="launcher"]')).toBeNull();
+  });
+
+  it('expone theme, size y position como propiedades reflejadas al atributo', () => {
+    const element = create();
+
+    element.theme = 'dark';
+    expect(element.getAttribute('theme')).toBe('dark');
+    expect(element.theme).toBe('dark');
+
+    element.size = 128;
+    expect(element.getAttribute('size')).toBe('128');
+    expect(element.size).toBe(128);
+
+    element.position = 'top-left';
+    expect(element.getAttribute('position')).toBe('top-left');
+    expect(element.position).toBe('top-left');
+  });
+
+  it('state también admite escritura como propiedad', () => {
+    const element = create();
+    element.state = 'speaking';
+    expect(element.getAttribute('state')).toBe('speaking');
+    expect(element.state).toBe('speaking');
+  });
+
+  it('monta el avatar Rive en el canvas del launcher', () => {
+    const element = create();
+    const canvas = element.shadowRoot!.querySelector('canvas');
+    expect(canvas).not.toBeNull();
+
+    const calls = vi.mocked(mountTessRive).mock.calls;
+    const call = calls.find((entry) => entry[0]?.canvas === canvas);
+    expect(call).toBeDefined();
+    expect(call?.[0]).toEqual(expect.objectContaining({ canvas, core: expect.any(Object) }));
+  });
+
+  it('normaliza un theme inválido presente antes de conectar (orden de upgrade)', () => {
+    const element = createDisconnected();
+    element.setAttribute('theme', 'bogus');
+    document.body.append(element);
+    expect(element.getAttribute('theme')).toBe('auto');
+  });
+
+  it('normaliza un position inválido presente antes de conectar (orden de upgrade)', () => {
+    const element = createDisconnected();
+    element.setAttribute('position', 'middle-of-nowhere');
+    document.body.append(element);
+    expect(element.getAttribute('position')).toBe('bottom-right');
   });
 });
