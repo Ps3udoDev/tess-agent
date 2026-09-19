@@ -3155,7 +3155,7 @@ git commit -m "feat(api): interfaz ModelProvider y proveedor fake determinista"
 - Consumes: `ModelMessage` (Tarea 14).
 - Produces: `detectarIdioma(texto, fallback)`, `componerMensajes(input): ModelMessage[]`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/agent/prompt.test.ts`:
 
@@ -3239,12 +3239,12 @@ describe('componerMensajes', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/agent/prompt.test.ts`
 Expected: FAIL, no se resuelve `./prompt.js`.
 
-- [ ] **Step 3: Escribir la composición**
+- [x] **Step 3: Escribir la composición**
 
 Crear `services/api/src/agent/prompt.ts`:
 
@@ -3330,12 +3330,12 @@ export function componerMensajes(input: ComponerInput): ModelMessage[] {
 }
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/agent/prompt.test.ts`
 Expected: PASS, los nueve casos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/api
