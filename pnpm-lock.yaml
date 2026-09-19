@@ -506,6 +506,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 10.11.0
+      jsdom:
+        specifier: 'catalog:'
+        version: 30.1.0
       tsup:
         specifier: 'catalog:'
         version: 8.5.1(postcss@8.5.28)(tsx@4.23.13)(typescript@6.0.3)
