@@ -2965,7 +2965,7 @@ El `fake` es lo que hace que el gate no dependa de red ni de crédito. Un gate q
 - Consumes: nada.
 - Produces: `ModelMessage`, `ModelProvider`, `createFakeModelProvider(options?)`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/agent/model-provider.fake.test.ts`:
 
@@ -3022,12 +3022,12 @@ describe('createFakeModelProvider', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/agent/model-provider.fake.test.ts`
 Expected: FAIL, no se resuelve `./model-provider.fake.js`.
 
-- [ ] **Step 3: Escribir la interfaz**
+- [x] **Step 3: Escribir la interfaz**
 
 Crear `services/api/src/agent/model-provider.ts`:
 
@@ -3054,7 +3054,7 @@ export interface ModelProvider {
 }
 ```
 
-- [ ] **Step 4: Escribir la implementación `fake`**
+- [x] **Step 4: Escribir la implementación `fake`**
 
 Crear `services/api/src/agent/model-provider.fake.ts`:
 
@@ -3119,7 +3119,7 @@ export function createFakeModelProvider(
 }
 ```
 
-- [ ] **Step 5: Corregir el primer test**
+- [x] **Step 5: Corregir el primer test**
 
 El primer test tiene una aserción escrita de forma retorcida. Sustituirla por:
 
@@ -3127,12 +3127,12 @@ El primer test tiene una aserción escrita de forma retorcida. Sustituirla por:
 expect(trozos.join('')).toBe('uno dos tres cuatro');
 ```
 
-- [ ] **Step 6: Ejecutar los tests**
+- [x] **Step 6: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/agent/model-provider.fake.test.ts`
 Expected: PASS, los tres casos.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add services/api
