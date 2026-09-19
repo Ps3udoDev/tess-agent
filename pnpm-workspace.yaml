@@ -33,6 +33,7 @@ catalog:
   # Svelte
   svelte: ^5.57.1
   svelte-check: ^4.7.6
+  '@sveltejs/package': ^2.5.4
   '@sveltejs/kit': ^2.70.3
   '@sveltejs/vite-plugin-svelte': ^7.3.0
   '@sveltejs/adapter-vercel': ^6.3.4
