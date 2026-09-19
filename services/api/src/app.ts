@@ -12,6 +12,7 @@ import { visitorSessionsRoute } from './http/visitor-sessions.route.js';
 import { supabasePlugin } from './plugins/supabase.js';
 import { authPlugin } from './plugins/auth.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
+import { corsPlugin } from './plugins/cors.js';
 
 export interface AppOverrides {
   env?: Partial<TessEnv>;
@@ -31,6 +32,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   await app.register(supabasePlugin);
   await app.register(authPlugin);
   await app.register(rateLimitPlugin);
+  await app.register(corsPlugin);
   await app.register(healthRoute);
   await app.register(visitorSessionsRoute);
 

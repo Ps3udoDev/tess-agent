@@ -129,6 +129,15 @@ async function plugin(app: FastifyInstance): Promise<void> {
 
     return data ?? null;
   });
+
+  app.decorate('listWidgetOrigins', async (): Promise<string[]> => {
+    const { data } = await serviceClient
+      .from('project_widget_settings')
+      .select('allowed_origins')
+      .eq('visitor_access', true);
+
+    return (data ?? []).flatMap((fila) => fila.allowed_origins as string[]);
+  });
 }
 
 export const supabasePlugin = fp(plugin, { name: 'supabase' });
@@ -140,5 +149,6 @@ declare module 'fastify' {
     insertAssistantMessage(input: AssistantMessageInput): Promise<{ id: string }>;
     recordAuditEvent(input: AuditEventInput): Promise<void>;
     readWidgetSettings(publicKey: string): Promise<WidgetSettings | null>;
+    listWidgetOrigins(): Promise<string[]>;
   }
 }
