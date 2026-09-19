@@ -47,7 +47,7 @@ El tipo de clave del proyecto hospedado **ya está confirmado: ES256**. Lo que q
 - Consumes: nada.
 - Produces: la decisión `AUTH_VERIFY = getClaims`, consumida por la Tarea 8, y un stack local que firma con ES256.
 
-- [ ] **Step 1: Comprobar que las variables existen en `.env`**
+- [x] **Step 1: Comprobar que las variables existen en `.env`**
 
 ```bash
 cd /c/Users/DELL/Desktop/code/herramientas/tess
@@ -61,7 +61,7 @@ Esperado: las seis `DEFINIDA`. Si alguna falta, se rellena antes de seguir.
 
 **Nunca imprimir el valor de una clave.** Solo su presencia.
 
-- [ ] **Step 2: Confirmar el tipo de clave de firma del proyecto hospedado**
+- [x] **Step 2: Confirmar el tipo de clave de firma del proyecto hospedado**
 
 **Ya resuelto: el proyecto usa ES256.** Se verifica contra el JWKS público,
 que no necesita credenciales:
@@ -97,7 +97,7 @@ Step 5 no aplica.
 Si el JWKS devolviera `{"keys":[]}`, entonces sí sería HS256 y habría que
 migrar en `Settings → API → JWT Keys` antes de la Tarea 8.
 
-- [ ] **Step 3: Generar la clave de firma asimétrica del Supabase local**
+- [x] **Step 3: Generar la clave de firma asimétrica del Supabase local**
 
 Sin esto, local y producción no se parecen: el stack local del CLI arranca por
 defecto con el secreto HS256 de demostración, así que `getClaims()` no podría
@@ -125,7 +125,7 @@ Descomentar y dejar la línea 168 así:
 signing_keys_path = "./signing_keys.json"
 ```
 
-- [ ] **Step 4: Excluir la clave del control de versiones**
+- [x] **Step 4: Excluir la clave del control de versiones**
 
 El propio `config.toml` lo advierte: **DO NOT commit your signing keys file.**
 
@@ -145,7 +145,7 @@ git check-ignore -v supabase/signing_keys.json
 Esperado: una línea citando la regla de `.gitignore`. Si no imprime nada, la
 regla no está aplicando y **no se sigue** hasta arreglarlo.
 
-- [ ] **Step 5: Reiniciar el stack local y comprobar que firma con ES256**
+- [x] **Step 5: Reiniciar el stack local y comprobar que firma con ES256**
 
 ```bash
 supabase stop && supabase start
@@ -156,7 +156,7 @@ Esperado: un JWKS con `"alg":"ES256"`, igual que el hospedado. Si devuelve
 `{"keys":[]}`, el `signing_keys_path` no se aplicó: revisar la ruta, que es
 relativa a `supabase/`.
 
-- [ ] **Step 6: Escribir el resultado**
+- [x] **Step 6: Escribir el resultado**
 
 Crear `docs/superpowers/plans/2026-09-19-fase-2-preflight.md` con:
 
@@ -190,7 +190,7 @@ MODEL_NAME: presente
 AI_GATEWAY_API_KEY: presente
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add docs/superpowers/plans/2026-09-19-fase-2-preflight.md supabase/config.toml .gitignore
@@ -210,7 +210,7 @@ git commit -m "chore(fase-2): clave de firma ES256 en local y resultado del pref
 - Consumes: `public.organizations`, `public.projects`, `public.set_updated_at()` de `0002`.
 - Produces: tablas `public.project_widget_settings` y `public.leads`; trigger `leads_set_organization`.
 
-- [ ] **Step 1: Escribir la migración**
+- [x] **Step 1: Escribir la migración**
 
 Crear `supabase/migrations/0008_widget_leads.sql`:
 
@@ -295,7 +295,7 @@ create trigger leads_set_organization_trigger
   for each row execute function public.leads_set_organization();
 ```
 
-- [ ] **Step 2: Aplicar y verificar que la migración corre limpia**
+- [x] **Step 2: Aplicar y verificar que la migración corre limpia**
 
 ```bash
 pnpm supabase:reset
@@ -303,7 +303,7 @@ pnpm supabase:reset
 
 Esperado: reset completo sin errores, incluyendo `0008`.
 
-- [ ] **Step 3: Verificar que el trigger deriva la organización**
+- [x] **Step 3: Verificar que el trigger deriva la organización**
 
 ```bash
 docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
@@ -322,13 +322,13 @@ docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
 Esperado: `derivada_ok = t`. El `organization_id` aleatorio que se pasó en el
 insert fue sobrescrito por el trigger.
 
-- [ ] **Step 4: Limpiar los datos de prueba**
+- [x] **Step 4: Limpiar los datos de prueba**
 
 ```bash
 pnpm supabase:reset
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/0008_widget_leads.sql
@@ -349,7 +349,7 @@ git commit -m "feat(db): ajustes del widget y tabla de leads con organizacion de
 - Consumes: `public.is_project_member()`, `public.is_org_admin()` de `0006`; las tablas de `0008`.
 - Produces: `public.project_accepts_visitors(uuid)` y las políticas de visitante.
 
-- [ ] **Step 1: Escribir la migración**
+- [x] **Step 1: Escribir la migración**
 
 Crear `supabase/migrations/0009_visitor_rls.sql`:
 
@@ -516,7 +516,7 @@ create policy leads_select_member on public.leads
   using (public.is_project_member(project_id));
 ```
 
-- [ ] **Step 1b: Crear `0010_tenant_integrity.sql`**
+- [x] **Step 1b: Crear `0010_tenant_integrity.sql`**
 
 RLS comprueba quién eres y dónde escribes, pero no que la etiqueta de tenant
 que traes coincida con la fila padre. Un visitante anónimo puede insertar un
@@ -620,7 +620,7 @@ create trigger messages_set_tenant_trigger
 Sobrescriben **siempre**, no solo cuando el cliente manda nulos: si fueran
 condicionales, bastaría con enviar un valor para evadir la derivación.
 
-- [ ] **Step 2: Aplicar la migración**
+- [x] **Step 2: Aplicar la migración**
 
 ```bash
 pnpm supabase:reset
@@ -628,7 +628,7 @@ pnpm supabase:reset
 
 Esperado: reset limpio incluyendo `0009`.
 
-- [ ] **Step 3: Verificar que el helper no entra en recursión**
+- [x] **Step 3: Verificar que el helper no entra en recursión**
 
 ```bash
 docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
@@ -639,7 +639,7 @@ docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
 Esperado: `sin_proyecto = f`, sin error de recursión ni de permisos. Si
 devolviera un error de política, el `security definer` no se aplicó.
 
-- [ ] **Step 4: Verificar que `anon` sigue sin acceso**
+- [x] **Step 4: Verificar que `anon` sigue sin acceso**
 
 ```bash
 docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
@@ -650,7 +650,7 @@ docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
 
 Esperado: ambas `f`. El widget público habla con el API, no con PostgREST.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/migrations/0009_visitor_rls.sql
@@ -671,7 +671,7 @@ git commit -m "feat(db): politicas RLS de visitante paralelas a las de miembro"
 - Consumes: las tablas de `0008`, `public.assistant_configs` de `0005`.
 - Produces: proyecto de desarrollo con `public_key = 'pk_dev_tess_local_0001'`, `visitor_access = true` y el prompt base sembrado.
 
-- [ ] **Step 1: Activar el sign-in anónimo**
+- [x] **Step 1: Activar el sign-in anónimo**
 
 En `supabase/config.toml`, línea 177:
 
@@ -683,7 +683,7 @@ enable_anonymous_sign_ins = true
 El límite `anonymous_users = 30` de la línea 202 se conserva. Es la segunda
 barrera debajo del rate limit del API, y esa sí es global.
 
-- [ ] **Step 2: Añadir la semilla de desarrollo**
+- [x] **Step 2: Añadir la semilla de desarrollo**
 
 Añadir al final de `supabase/seed.sql`:
 
@@ -755,7 +755,7 @@ on conflict (project_id) do update
   where public.assistant_configs.system_prompt is null;
 ```
 
-- [ ] **Step 3: Aplicar y verificar la semilla**
+- [x] **Step 3: Aplicar y verificar la semilla**
 
 Dos cosas de este entorno que conviene saber antes de ejecutar, porque de otro
 modo se redescubren a base de desconcierto:
@@ -782,7 +782,7 @@ docker exec -i supabase_db_tess psql -U postgres -d postgres -c "
 Esperado: una fila con `public_key = pk_dev_tess_local_0001`,
 `visitor_access = t`, `origenes = 2` y `prompt_chars` en torno a 1500.
 
-- [ ] **Step 4: Verificar que el sign-in anónimo está activo**
+- [x] **Step 4: Verificar que el sign-in anónimo está activo**
 
 ```bash
 curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" \
@@ -793,7 +793,7 @@ curl -s -X POST "http://127.0.0.1:54321/auth/v1/signup" \
 Esperado: una respuesta con `access_token`, no un error
 `anonymous_provider_disabled`.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add supabase/config.toml supabase/seed.sql
@@ -819,7 +819,7 @@ El entry point raíz **debe seguir sin zod**: el web component importa de ahí v
 - Consumes: `AssistantState`, `AssistantStreamEvent` del propio paquete.
 - Produces: desde `@teams4soft/tess-types/api` → `visitorSessionRequestSchema`, `visitorSessionResponseSchema`, `createConversationRequestSchema`, `sendMessageRequestSchema`, `leadRequestSchema`, `viewerResponseSchema`, `TESS_ERROR_CODES`, `tessErrorSchema`, `httpStatusForError()`. Desde la raíz → `ChatMessage`, `LeadInput`, `TessViewer`, `TessClientLike` ensanchado.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-types/src/api.test.ts`:
 
@@ -889,12 +889,12 @@ describe('httpStatusForError', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-types test`
 Expected: FAIL, no se resuelve `./api.js`.
 
-- [ ] **Step 3: Escribir los esquemas**
+- [x] **Step 3: Escribir los esquemas**
 
 Crear `packages/tess-types/src/api.ts`:
 
@@ -998,7 +998,7 @@ export const chatMessageSchema = z.object({
 export const assistantStateSchema = z.enum(ASSISTANT_STATES);
 ```
 
-- [ ] **Step 4: Ensanchar `TessClientLike` y publicar el entry point**
+- [x] **Step 4: Ensanchar `TessClientLike` y publicar el entry point**
 
 En `packages/tess-types/src/client.ts`, sustituir el bloque de `TessClientLike`
 por:
@@ -1058,20 +1058,34 @@ En `packages/tess-types/package.json`, sustituir `exports` por:
 }
 ```
 
-- [ ] **Step 5: Ejecutar los tests y el typecheck**
+- [x] **Step 5: Ejecutar los tests y el typecheck**
 
 Run: `pnpm --filter @teams4soft/tess-types test && pnpm --filter @teams4soft/tess-types typecheck && pnpm --filter @teams4soft/tess-types build`
 Expected: PASS, y `dist/api.js` existe.
 
-- [ ] **Step 6: Verificar que la raíz sigue sin zod**
+- [x] **Step 6: Verificar que la raíz sigue sin zod**
+
+`tsup` extrae a un chunk compartido lo que `index.ts` y `api.ts` tienen en
+común, así que mirar solo `index.js` deja un hueco: zod podría entrar por un
+chunk que `index.js` importa. Hay que seguir la cadena.
 
 ```bash
-grep -c "zod\|ZodType" packages/tess-types/dist/index.js
+cd packages/tess-types
+# index.js y todos los chunks que importa, de forma transitiva
+FILES="dist/index.js $(grep -o "from '\./[^']*'" dist/index.js | sed "s/from '\.\///; s/'//" | sed 's|^|dist/|' | tr '
+' ' ')"
+echo "revisando: $FILES"
+grep -l "ZodType\|\$ZodType" $FILES && echo "FALLO: zod en la cadena de index.js" || echo "OK: cadena de index.js sin zod"
+grep -q "ZodType\|\$ZodType" dist/api.js && echo "OK: api.js si trae zod, como debe" || echo "AVISO: api.js no trae zod"
 ```
 
-Esperado: `0`. Si aparece, algo reexportó `api.ts` desde `index.ts`.
+Esperado: la cadena de `index.js` limpia y `api.js` con zod. Si zod aparece en
+la cadena de `index.js`, algo reexportó `api.ts` desde `index.ts`.
 
-- [ ] **Step 7: Commit**
+La comprobación definitiva no es esta sino la del bundle del web component en
+la Tarea 28, que mira el artefacto que de verdad descarga el navegador.
+
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/tess-types
@@ -1097,7 +1111,7 @@ git commit -m "feat(types): esquemas zod de la API en entry point propio y TessC
 - Consumes: nada de tareas anteriores.
 - Produces: `loadEnv(): TessEnv`, `buildApp(overrides?: AppOverrides): Promise<FastifyInstance>`.
 
-- [ ] **Step 1: Añadir las dependencias al catálogo**
+- [x] **Step 1: Añadir las dependencias al catálogo**
 
 En `pnpm-workspace.yaml`, dentro de `catalog:`, sección `# Runtime`:
 
@@ -1121,7 +1135,7 @@ Luego:
 pnpm install
 ```
 
-- [ ] **Step 2: Escribir el test que falla**
+- [x] **Step 2: Escribir el test que falla**
 
 Crear `services/api/src/app.test.ts`:
 
@@ -1142,12 +1156,12 @@ describe('buildApp', () => {
 });
 ```
 
-- [ ] **Step 3: Ejecutar el test para verificar que falla**
+- [x] **Step 3: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test`
 Expected: FAIL, no se resuelve `./app.js`.
 
-- [ ] **Step 4: Escribir `env.ts`**
+- [x] **Step 4: Escribir `env.ts`**
 
 Crear `services/api/src/env.ts`:
 
@@ -1204,7 +1218,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): TessEnv {
 }
 ```
 
-- [ ] **Step 5: Escribir `app.ts` y adelgazar `main.ts`**
+- [x] **Step 5: Escribir `app.ts` y adelgazar `main.ts`**
 
 Crear `services/api/src/app.ts`:
 
@@ -1276,7 +1290,7 @@ export async function healthRoute(app: FastifyInstance): Promise<void> {
 }
 ```
 
-- [ ] **Step 6: Ejecutar los tests**
+- [x] **Step 6: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test && pnpm --filter @teams4soft/api typecheck`
 Expected: PASS.
@@ -1285,7 +1299,7 @@ Si `loadEnv()` falla en el test por falta de `SUPABASE_URL`, añadir a
 `services/api/vitest.config.ts` un `setupFiles` que cargue `.env`, o pasar los
 valores por `overrides.env` en el test.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add services/api pnpm-workspace.yaml pnpm-lock.yaml
@@ -1307,7 +1321,7 @@ git commit -m "feat(api): arranque testeable con buildApp y validacion de entorn
 - Consumes: `TessEnv` de la Tarea 6.
 - Produces: `supabasePlugin`, `app.userClient(token: string): SupabaseClient`, `app.mintVisitorSession()`, `app.insertAssistantMessage()`, `app.recordAuditEvent()`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/plugins/supabase.test.ts`:
 
@@ -1339,12 +1353,12 @@ describe('supabasePlugin', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/supabase.test.ts`
 Expected: FAIL, no se resuelve `./plugins/supabase.js`.
 
-- [ ] **Step 3: Escribir el plugin**
+- [x] **Step 3: Escribir el plugin**
 
 Crear `services/api/src/plugins/supabase.ts`:
 
@@ -1495,12 +1509,12 @@ import { supabasePlugin } from './plugins/supabase.js';
 await app.register(supabasePlugin);
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm install && pnpm --filter @teams4soft/api test && pnpm --filter @teams4soft/api typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Verificar que solo hay tres usos de `service_role`**
+- [x] **Step 5: Verificar que solo hay tres usos de `service_role`**
 
 ```bash
 grep -rn "SERVICE_ROLE" services/api/src/ | grep -v "\.test\.ts"
@@ -1509,7 +1523,7 @@ grep -rn "SERVICE_ROLE" services/api/src/ | grep -v "\.test\.ts"
 Esperado: exactamente **una** línea, en `plugins/supabase.ts`. Si aparece en
 cualquier otro archivo, ese archivo está bypaseando RLS y hay que corregirlo.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api pnpm-workspace.yaml pnpm-lock.yaml
@@ -1533,7 +1547,7 @@ La Tarea 1 confirmó `AUTH_VERIFY = getClaims`: el proyecto hospedado firma con 
 - Consumes: `app.userClient()` de la Tarea 7.
 - Produces: `authPlugin`, `app.authenticate` (preHandler), `request.auth: { userId, isAnonymous, token }`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/plugins/auth.test.ts`:
 
@@ -1578,12 +1592,12 @@ describe('authenticate', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/auth.test.ts`
 Expected: FAIL, `app.authenticate` no existe.
 
-- [ ] **Step 3: Escribir el plugin**
+- [x] **Step 3: Escribir el plugin**
 
 Crear `services/api/src/plugins/auth.ts`:
 
@@ -1674,12 +1688,12 @@ import { authPlugin } from './plugins/auth.js';
 await app.register(authPlugin);
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/auth.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Verificar que la verificación es local, no de red**
+- [x] **Step 5: Verificar que la verificación es local, no de red**
 
 Con el stack local levantado, comprobar que `getClaims()` resuelve sin llamar
 a `/auth/v1/user`:
@@ -1702,7 +1716,7 @@ que la segunda verificación no toca la red. Si tardara cientos de milisegundos
 por llamada, la clave local no es asimétrica y el Step 3 de la Tarea 1 no se
 aplicó.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api
@@ -1726,7 +1740,7 @@ Un contador en memoria en Cloud Run cuenta **por instancia**: con tres instancia
 - Consumes: nada.
 - Produces: `RateLimiter`, `RateLimitResult`, `createMemoryRateLimiter()`, `app.rateLimiter`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/plugins/rate-limit.test.ts`:
 
@@ -1774,12 +1788,12 @@ describe('createMemoryRateLimiter', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/rate-limit.test.ts`
 Expected: FAIL, no se resuelve `./rate-limit.js`.
 
-- [ ] **Step 3: Escribir el plugin**
+- [x] **Step 3: Escribir el plugin**
 
 Crear `services/api/src/plugins/rate-limit.ts`:
 
@@ -1858,12 +1872,12 @@ import { rateLimitPlugin } from './plugins/rate-limit.js';
 await app.register(rateLimitPlugin);
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/rate-limit.test.ts`
 Expected: PASS, los tres casos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/api
@@ -1887,7 +1901,7 @@ El orden de validación **importa**: los tres filtros van antes del minteo porqu
 - Consumes: `app.mintVisitorSession()`, `app.recordAuditEvent()` (Tarea 7); `app.rateLimiter` (Tarea 9); `visitorSessionRequestSchema` (Tarea 5).
 - Produces: la ruta `POST /v1/visitor-sessions`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/http/visitor-sessions.test.ts`:
 
@@ -2038,12 +2052,12 @@ describe('POST /v1/visitor-sessions', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/http/visitor-sessions.test.ts`
 Expected: FAIL, la ruta devuelve 404 de Fastify.
 
-- [ ] **Step 3: Añadir la lectura de settings al plugin de Supabase**
+- [x] **Step 3: Añadir la lectura de settings al plugin de Supabase**
 
 En `services/api/src/plugins/supabase.ts`, **a nivel de módulo** —junto a las
 otras interfaces exportadas, no dentro de `plugin()`—, añadir:
@@ -2083,7 +2097,7 @@ Y añadir su firma al `declare module`:
     readWidgetSettings(publicKey: string): Promise<WidgetSettings | null>;
 ```
 
-- [ ] **Step 4: Escribir la ruta**
+- [x] **Step 4: Escribir la ruta**
 
 Crear `services/api/src/http/visitor-sessions.route.ts`:
 
@@ -2187,13 +2201,13 @@ await app.register(visitorSessionsRoute);
 Y añadir `@teams4soft/tess-types` ya está en `dependencies`; no hace falta
 tocar el `package.json`.
 
-- [ ] **Step 5: Ejecutar los tests**
+- [x] **Step 5: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/http/visitor-sessions.test.ts`
 Expected: PASS, los seis casos. En particular los cuatro que comprueban
 `minted.veces === 0`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api
@@ -2217,7 +2231,7 @@ CORS se evalúa **antes** de saber qué proyecto es, así que la lista de oríge
 - Consumes: `app.env.CORS_ALLOWED_ORIGINS` (Tarea 6), el cliente de servicio (Tarea 7).
 - Produces: `corsPlugin`, `app.allowedOrigins(): Promise<Set<string>>`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/plugins/cors.test.ts`:
 
@@ -2270,12 +2284,12 @@ describe('corsPlugin', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/cors.test.ts`
 Expected: FAIL, no se resuelve `./cors.js`.
 
-- [ ] **Step 3: Escribir el plugin**
+- [x] **Step 3: Escribir el plugin**
 
 Crear `services/api/src/plugins/cors.ts`:
 
@@ -2366,12 +2380,12 @@ import { corsPlugin } from './plugins/cors.js';
 await app.register(corsPlugin);
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/plugins/cors.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/api

@@ -185,12 +185,12 @@ La decisión de utilizar usuarios anónimos de Supabase es adecuada porque permi
 
 Hay que distinguir cuatro casos:
 
-| Persona | Puede conversar | Debe ver formulario de lead automáticamente |
-|---|---:|---:|
-| Visitante anónimo de una landing | Sí | Sí, después de la primera respuesta completa, si no existe lead |
-| Usuario registrado pero no miembro del proyecto | Sí | Sí, si actúa como prospecto y no existe lead |
-| Cliente registrado miembro de la organización | Sí | No por defecto |
-| Administrador o miembro interno | Sí | No por defecto |
+| Persona                                         | Puede conversar |                     Debe ver formulario de lead automáticamente |
+| ----------------------------------------------- | --------------: | --------------------------------------------------------------: |
+| Visitante anónimo de una landing                |              Sí | Sí, después de la primera respuesta completa, si no existe lead |
+| Usuario registrado pero no miembro del proyecto |              Sí |                    Sí, si actúa como prospecto y no existe lead |
+| Cliente registrado miembro de la organización   |              Sí |                                                  No por defecto |
+| Administrador o miembro interno                 |              Sí |                                                  No por defecto |
 
 El formulario de lead debe activarse para prospectos, no para cualquier usuario que tenga un JWT. La condición recomendada es:
 
@@ -307,7 +307,11 @@ La implementación debe abstraerse:
 
 ```ts
 interface RateLimiter {
-  consume(key: string, limit: number, windowSeconds: number): Promise<RateLimitResult>;
+  consume(
+    key: string,
+    limit: number,
+    windowSeconds: number,
+  ): Promise<RateLimitResult>;
 }
 ```
 
