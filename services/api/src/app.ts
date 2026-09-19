@@ -9,6 +9,7 @@ import sensible from '@fastify/sensible';
 import { loadEnv, type TessEnv } from './env.js';
 import { healthRoute } from './http/health.route.js';
 import { supabasePlugin } from './plugins/supabase.js';
+import { authPlugin } from './plugins/auth.js';
 
 export interface AppOverrides {
   env?: Partial<TessEnv>;
@@ -26,6 +27,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   app.decorate('env', env);
   await app.register(sensible);
   await app.register(supabasePlugin);
+  await app.register(authPlugin);
   await app.register(healthRoute);
 
   return app;
