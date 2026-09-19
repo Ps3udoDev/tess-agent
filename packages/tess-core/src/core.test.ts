@@ -23,7 +23,7 @@ describe('createTessCore', () => {
     core.subscribe(seen);
     core.setState('listening');
     expect(seen).toHaveBeenCalledTimes(1);
-    expect(seen.mock.calls[0][0].state).toBe('listening');
+    expect(seen).toHaveBeenCalledWith(expect.objectContaining({ state: 'listening' }));
   });
 
   it('no notifica si el estado no cambia', () => {
