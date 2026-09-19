@@ -41,6 +41,13 @@ export interface TessCore {
  */
 export const DEFAULT_TRANSIENT_MS = { success: 1920, error: 2520 } as const;
 
+const TRANSIENT_STATES = ['success', 'error'] as const;
+type TransientState = (typeof TRANSIENT_STATES)[number];
+
+function isTransient(state: RequestedState): state is TransientState {
+  return (TRANSIENT_STATES as readonly string[]).includes(state);
+}
+
 export function createTessCore(options: TessCoreOptions = {}): TessCore {
   const onError = options.onError ?? (() => {});
 
@@ -48,6 +55,16 @@ export function createTessCore(options: TessCoreOptions = {}): TessCore {
   let requested: RequestedState = options.initialState ?? 'idle';
   const reducedMotion = false;
   const online = true;
+
+  const transientMs = { ...DEFAULT_TRANSIENT_MS, ...options.transientMs };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  function clearTransient(): void {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+      timer = undefined;
+    }
+  }
 
   const listeners = new Set<(snapshot: TessSnapshot) => void>();
 
@@ -78,8 +95,17 @@ export function createTessCore(options: TessCoreOptions = {}): TessCore {
       onError(new Error(`Estado no solicitable: ${String(next)}`));
       return;
     }
+    // Cualquier cambio invalida el retorno pendiente: un temporizador viejo
+    // nunca puede pisar una interacción nueva.
+    clearTransient();
     const previous = getSnapshot();
     requested = next;
+    if (isTransient(next)) {
+      timer = setTimeout(() => {
+        timer = undefined;
+        setState('idle');
+      }, transientMs[next]);
+    }
     emit(previous);
   }
 
@@ -92,6 +118,7 @@ export function createTessCore(options: TessCoreOptions = {}): TessCore {
   function destroy(): void {
     if (destroyed) return;
     destroyed = true;
+    clearTransient();
     listeners.clear();
   }
 
