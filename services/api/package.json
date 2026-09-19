@@ -26,6 +26,7 @@
     "@teams4soft/tess-types": "workspace:*",
     "dotenv": "catalog:",
     "fastify": "catalog:",
+    "fastify-plugin": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },

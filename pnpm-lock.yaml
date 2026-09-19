@@ -69,6 +69,9 @@ catalogs:
     fastify:
       specifier: ^5.12.5
       version: 5.12.5
+    fastify-plugin:
+      specifier: ^5.1.0
+      version: 5.1.0
     globals:
       specifier: ^17.12.0
       version: 17.12.0
@@ -590,6 +593,9 @@ importers:
       fastify:
         specifier: 'catalog:'
         version: 5.12.5
+      fastify-plugin:
+        specifier: 'catalog:'
+        version: 5.1.0
       pino:
         specifier: 'catalog:'
         version: 10.3.1
