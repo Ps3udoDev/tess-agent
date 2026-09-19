@@ -16,3 +16,19 @@ export const ASSISTANT_STATES = [
 ] as const;
 
 export type AssistantState = (typeof ASSISTANT_STATES)[number];
+
+/**
+ * Estados que el integrador puede solicitar.
+ *
+ * `offline` queda fuera a propósito: lo deriva `tess-core` de la
+ * conectividad, no se pide desde fuera.
+ */
+export type RequestedState = Exclude<AssistantState, 'offline'>;
+
+export function isRequestedState(value: unknown): value is RequestedState {
+  return (
+    typeof value === 'string' &&
+    value !== 'offline' &&
+    (ASSISTANT_STATES as readonly string[]).includes(value)
+  );
+}

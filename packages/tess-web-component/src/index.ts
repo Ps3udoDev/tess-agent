@@ -11,7 +11,12 @@
  *   métodos   : openChat(), closeChat(), destroy()
  *   eventos   : tess:open, tess:close, tess:state, tess:error
  *
- * TODO(fase-1): implementar la clase, el shadow DOM, el botón accesible y el
- * diálogo HTML. El panel de chat vive en el DOM, no en el canvas.
+ * El panel de chat vive en el DOM, no en el canvas.
  */
-export const TAG_NAME = 'teams4soft-assistant';
+import './element.js';
+
+// `TAG_NAME` vive en `tess-types` (sin dependencias de DOM); se reexporta
+// aquí para que la API pública de este paquete no cambie para quien ya
+// importa `TAG_NAME` desde `@teams4soft/tess-web-component`.
+export { TAG_NAME } from '@teams4soft/tess-types';
+export { TessAssistantElement } from './element.js';

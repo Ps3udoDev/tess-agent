@@ -5,10 +5,12 @@
   "license": "UNLICENSED",
   "type": "module",
   "sideEffects": false,
+  "svelte": "./dist/index.js",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "svelte": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./package.json": "./package.json"
   },
@@ -19,9 +21,9 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsup",
-    "dev": "tsup --watch",
-    "typecheck": "tsc --noEmit",
+    "build": "svelte-package --input src --output dist",
+    "dev": "svelte-package --input src --output dist --watch",
+    "typecheck": "svelte-check --tsconfig ./tsconfig.json",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
@@ -35,10 +37,13 @@
     "svelte": "catalog:"
   },
   "devDependencies": {
+    "@sveltejs/package": "catalog:",
     "@teams4soft/config-eslint": "workspace:*",
     "@teams4soft/config-tsconfig": "workspace:*",
     "eslint": "catalog:",
-    "tsup": "catalog:",
+    "publint": "catalog:",
+    "svelte": "catalog:",
+    "svelte-check": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },

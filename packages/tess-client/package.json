@@ -33,6 +33,7 @@
     "@teams4soft/config-eslint": "workspace:*",
     "@teams4soft/config-tsconfig": "workspace:*",
     "eslint": "catalog:",
+    "publint": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

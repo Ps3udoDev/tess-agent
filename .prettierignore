@@ -6,6 +6,7 @@ build/
 .vercel/
 coverage/
 pnpm-lock.yaml
-tess-rive/
+/tess-rive/
 supabase/.temp/
 packages/tess-types/src/generated/
+.superpowers/

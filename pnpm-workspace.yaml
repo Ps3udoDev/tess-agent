@@ -3,9 +3,12 @@ packages:
   - packages/*
   - services/*
 
+# Scripts de instalación permitidos explícitamente (pnpm v11+ los bloquea por
+# defecto). esbuild es el compilador de tsup/vite; @sentry/cli sube los
+# source maps durante el build.
 allowBuilds:
-  '@sentry/cli': set this to true or false
-  esbuild: set this to true or false
+  '@sentry/cli': true
+  esbuild: true
 
 # Catálogo central de versiones. Los workspaces referencian `catalog:` para
 # que exista un único lugar donde subir una versión en todo el monorepo.
@@ -18,6 +21,7 @@ catalog:
   vite: ^8.3.0
   vitest: ^5.0.1
   publint: ^0.3.24
+  jsdom: ^30.1.0
 
   # Lint / format
   eslint: ^10.11.0
@@ -32,6 +36,7 @@ catalog:
   # Svelte
   svelte: ^5.57.1
   svelte-check: ^4.7.6
+  '@sveltejs/package': ^2.5.4
   '@sveltejs/kit': ^2.70.3
   '@sveltejs/vite-plugin-svelte': ^7.3.0
   '@sveltejs/adapter-vercel': ^6.3.4
@@ -67,10 +72,3 @@ minimumReleaseAgeExclude:
   - eslint@10.11.0
   - svelte@5.57.1
   - turbo@2.11.2
-
-# Scripts de instalación permitidos explícitamente (pnpm los bloquea por
-# defecto). esbuild es el compilador de tsup/vite; @sentry/cli sube los
-# source maps durante el build.
-onlyBuiltDependencies:
-  - '@sentry/cli'
-  - esbuild
