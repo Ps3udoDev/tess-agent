@@ -106,9 +106,16 @@ estarían ejercitando un camino distinto del de producción.
 
 `supabase/config.toml:168` ya tiene la opción preparada, comentada.
 
+`supabase gen signing-key` emite **un objeto JSON suelto**, pero
+`signing_keys_path` espera **un array**. Si se escribe tal cual,
+`supabase start` falla con `Expected array`. Hay que envolverlo, y conviene
+hacerlo por tubería para que la clave no pase nunca por la terminal:
+
 ```bash
 cd /c/Users/DELL/Desktop/code/herramientas/tess
-supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json
+supabase gen signing-key --algorithm ES256 \
+  | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>process.stdout.write(JSON.stringify([JSON.parse(s)],null,2)))" \
+  > supabase/signing_keys.json
 ```
 
 Descomentar y dejar la línea 168 así:
