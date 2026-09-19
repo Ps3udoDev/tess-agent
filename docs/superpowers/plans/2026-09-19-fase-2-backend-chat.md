@@ -3500,7 +3500,7 @@ git commit -m "feat(api): proveedor real via AI Gateway detras de ModelProvider"
 - Consumes: `AssistantStreamEvent` de `@teams4soft/tess-types`.
 - Produces: `createSseWriter(raw): SseWriter` con `send()`, `heartbeat()`, `close()`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/domain/assistant-events/sse-writer.test.ts`:
 
@@ -3580,12 +3580,12 @@ describe('createSseWriter', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/domain/assistant-events/sse-writer.test.ts`
 Expected: FAIL, no se resuelve `./sse-writer.js`.
 
-- [ ] **Step 3: Escribir el writer**
+- [x] **Step 3: Escribir el writer**
 
 Crear `services/api/src/domain/assistant-events/sse-writer.ts`:
 
@@ -3652,12 +3652,12 @@ export function createSseWriter(sink: SseSink): SseWriter {
 }
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/domain/assistant-events/sse-writer.test.ts`
 Expected: PASS, los cinco casos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/api
