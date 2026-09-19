@@ -690,6 +690,9 @@ Añadir al final de `supabase/seed.sql`:
 ```sql
 -- =============================================================================
 -- Semilla de Fase 2: proyecto de desarrollo con widget público
+--
+-- DESARROLLO LOCAL. `supabase db reset` la ejecuta; `supabase db push` no.
+-- No está pensada para correr contra un proyecto hospedado.
 -- =============================================================================
 
 insert into public.project_widget_settings (
@@ -744,10 +747,27 @@ puede utilizar su formulario seguro de lead.$prompt$
 from public.projects p
 order by p.created_at
 limit 1
-on conflict (project_id) do update set system_prompt = excluded.system_prompt;
+on conflict (project_id) do update
+  set system_prompt = excluded.system_prompt
+  -- Solo siembra si el proyecto no tiene prompt. Un cliente puede
+  -- personalizarlo sin desplegar, así que reejecutar la semilla no debe
+  -- pisarlo.
+  where public.assistant_configs.system_prompt is null;
 ```
 
 - [ ] **Step 3: Aplicar y verificar la semilla**
+
+Dos cosas de este entorno que conviene saber antes de ejecutar, porque de otro
+modo se redescubren a base de desconcierto:
+
+1. **`pnpm supabase:reset` puede fallar la primera vez** con
+   `LegacyDbSetupError`, por un arranque tardío del contenedor
+   `supabase_analytics_tess`. Reintentar suele bastar.
+2. **`supabase db reset` NO recarga los cambios de `config.toml` que se
+   traducen en variables de entorno de los servicios.** `enable_anonymous_sign_ins`
+   llega a `supabase_auth_tess` como `GOTRUE_EXTERNAL_ANONYMOUS_USERS_ENABLED`,
+   y el reset reinicia los contenedores sin recrearlos. Para que el flag surta
+   efecto hace falta `supabase stop && supabase start`.
 
 ```bash
 pnpm supabase:reset
