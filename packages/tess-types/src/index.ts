@@ -7,5 +7,7 @@
  * TODO(fase-2): añadir los esquemas zod de request/response de la API.
  * TODO(fase-3): reexportar los tipos generados desde `src/generated/supabase.ts`.
  */
-export { ASSISTANT_STATES, type AssistantState } from './assistant.js';
+export { ASSISTANT_STATES, type AssistantState, type RequestedState, isRequestedState } from './assistant.js';
 export { type AssistantStreamEvent, type AssistantStreamEventName } from './events.js';
+export * from './client.js';
+export * from './component.js';
