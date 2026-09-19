@@ -51,3 +51,6 @@ pnpm-debug.log*
 !tess-rive/build/*.rev
 !tess-rive/qa/build/
 !packages/tess-rive/assets/
+
+# Clave de firma JWT del Supabase local. Nunca se commitea.
+supabase/signing_keys.json
