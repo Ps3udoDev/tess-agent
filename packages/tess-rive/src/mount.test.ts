@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTessCore } from '@teams4soft/tess-core';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTessCore, DEFAULT_TRANSIENT_MS } from '@teams4soft/tess-core';
 import { RIVE_BOOLEANS, RIVE_TRIGGERS } from './contract.js';
 import { mountTessRive } from './mount.js';
 
@@ -22,11 +22,22 @@ const riveInstance = {
   resizeDrawingSurfaceToCanvas: vi.fn(),
 };
 
+// El `onLoad` de Rive se captura en vez de auto-resolverse: la carga del
+// .riv es un fetch de red, así que el estado puede pedirse (y hasta
+// completar un transitorio) antes de que termine. Capturarlo permite
+// interoperar ese orden en los tests en vez de asumir que siempre gana la
+// carga.
+let pendingOnLoad: (() => void) | undefined;
+
+function loadRive(): void {
+  pendingOnLoad?.();
+}
+
 vi.mock('@rive-app/canvas', () => ({
   Rive: class {
     constructor(options: { onLoad?: () => void }) {
       Object.assign(this, riveInstance);
-      queueMicrotask(() => options.onLoad?.());
+      pendingOnLoad = options.onLoad;
     }
   },
   Layout: class {},
@@ -62,12 +73,16 @@ beforeEach(async () => {
   for (const name of Object.values(RIVE_BOOLEANS)) makeInput(name);
   for (const name of Object.values(RIVE_TRIGGERS)) makeInput(name);
   vi.clearAllMocks();
+  pendingOnLoad = undefined;
 });
+
+afterEach(() => vi.useRealTimers());
 
 async function mount() {
   const core = createTessCore();
   const canvas = document.createElement('canvas');
   const handle = mountTessRive({ canvas, core });
+  loadRive();
   await Promise.resolve();
   return { core, handle };
 }
@@ -111,6 +126,7 @@ describe('traducción de estado a inputs', () => {
     const core = createTessCore({ media: media.api });
     const canvas = document.createElement('canvas');
     mountTessRive({ canvas, core });
+    loadRive();
     await Promise.resolve();
 
     core.setState('error');
@@ -131,6 +147,7 @@ describe('traducción de estado a inputs', () => {
     });
     const canvas = document.createElement('canvas');
     mountTessRive({ canvas, core });
+    loadRive();
     await Promise.resolve();
     expect(inputs.get(RIVE_BOOLEANS.reducedMotion)!.value).toBe(true);
   });
@@ -139,5 +156,40 @@ describe('traducción de estado a inputs', () => {
     const { handle } = await mount();
     handle.greet();
     expect(inputs.get(RIVE_TRIGGERS.greet)!.fire).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('estado pedido antes de que el .riv termine de cargar', () => {
+  it('dispara el trigger al cargar si el estado pedido antes sigue vigente', async () => {
+    const core = createTessCore();
+    const canvas = document.createElement('canvas');
+    mountTessRive({ canvas, core });
+
+    // Se pide 'success' mientras `inputs` todavía está vacío: bool()/fire()
+    // son no-ops en este punto. El trigger no debe perderse.
+    core.setState('success');
+    expect(inputs.get(RIVE_TRIGGERS.success)!.fire).not.toHaveBeenCalled();
+
+    loadRive();
+    await Promise.resolve();
+
+    expect(inputs.get(RIVE_TRIGGERS.success)!.fire).toHaveBeenCalledTimes(1);
+  });
+
+  it('no resucita el trigger si el transitorio ya volvió a idle antes de cargar', async () => {
+    vi.useFakeTimers();
+    const core = createTessCore();
+    const canvas = document.createElement('canvas');
+    mountTessRive({ canvas, core });
+
+    core.setState('success');
+    // El transitorio expira y vuelve a 'idle' mientras el .riv sigue
+    // cargando: la ventana para disparar 'success' ya pasó.
+    vi.advanceTimersByTime(DEFAULT_TRANSIENT_MS.success);
+
+    loadRive();
+    await Promise.resolve();
+
+    expect(inputs.get(RIVE_TRIGGERS.success)!.fire).not.toHaveBeenCalled();
   });
 });

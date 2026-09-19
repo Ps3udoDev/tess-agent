@@ -35,6 +35,7 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
   const onError = options.onError ?? (() => {});
 
   let destroyed = false;
+  let loaded = false;
   let inputs = new Map<string, RiveInput>();
   let previous: TessSnapshot | undefined;
 
@@ -52,6 +53,7 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
           (input) => [input.name, input],
         ),
       );
+      loaded = true;
       apply(core.getSnapshot());
     },
     onLoadError: () => onError(new Error(`No se pudo cargar el .riv: ${src}`)),
@@ -67,6 +69,15 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
   }
 
   function apply(snapshot: TessSnapshot): void {
+    // Antes de que el .riv termine de cargar, `inputs` está vacío: fijar
+    // `value`/`fire()` no llega a ningún sitio. Si igual registráramos este
+    // snapshot como `previous`, un trigger pedido en esa ventana (p. ej. un
+    // atributo `state="success"` presente al primer parse del componente)
+    // se perdería para siempre: al cargar, la comparación contra `previous`
+    // vería el mismo estado y no lo dispararía. No tocar `previous` hasta
+    // que haya inputs reales a los que aplicar el snapshot.
+    if (!loaded) return;
+
     bool(RIVE_BOOLEANS.listening, snapshot.state === 'listening');
     bool(RIVE_BOOLEANS.thinking, snapshot.state === 'thinking');
     bool(RIVE_BOOLEANS.speaking, snapshot.state === 'speaking');
