@@ -31,18 +31,21 @@
 
 ---
 
-### Task 1: Preflight — tipo de clave JWT y variables de entorno
+### Task 1: Preflight — claves de firma y entorno
 
-**Bloqueante.** Requiere una persona con acceso al panel de Supabase. El resultado decide cómo se implementa la Tarea 8, así que no se empieza nada hasta cerrarla.
+El tipo de clave del proyecto hospedado **ya está confirmado: ES256**. Lo que queda de esta tarea es alinear el Supabase local con producción, para que `getClaims()` verifique igual en ambos sitios.
 
 **Files:**
 
 - Create: `docs/superpowers/plans/2026-09-19-fase-2-preflight.md`
+- Create: `supabase/signing_keys.json` (no se commitea)
+- Modify: `supabase/config.toml:168`
+- Modify: `.gitignore`
 
 **Interfaces:**
 
 - Consumes: nada.
-- Produces: la decisión `AUTH_VERIFY = getClaims | getUser-temporal`, consumida por la Tarea 8.
+- Produces: la decisión `AUTH_VERIFY = getClaims`, consumida por la Tarea 8, y un stack local que firma con ES256.
 
 - [ ] **Step 1: Comprobar que las variables existen en `.env`**
 
@@ -58,77 +61,133 @@ Esperado: las seis `DEFINIDA`. Si alguna falta, se rellena antes de seguir.
 
 **Nunca imprimir el valor de una clave.** Solo su presencia.
 
-- [ ] **Step 2: Verificar el tipo de clave de firma JWT en el panel**
+- [ ] **Step 2: Confirmar el tipo de clave de firma del proyecto hospedado**
 
-Una persona abre el panel de Supabase del proyecto `mpntdrcsdspuyfltvexs`:
+**Ya resuelto: el proyecto usa ES256.** Se verifica contra el JWKS público,
+que no necesita credenciales:
 
-```text
-Settings → API → JWT Keys
+```bash
+curl -s "https://mpntdrcsdspuyfltvexs.supabase.co/auth/v1/.well-known/jwks.json"
 ```
 
-Y anota cuál es la clave activa:
+Esperado, y es lo que devuelve hoy:
 
-- **Asimétrica** (ES256, RS256, EdDSA) → `AUTH_VERIFY = getClaims`.
-- **Legacy HS256 shared secret** → hay que migrar antes de la Tarea 8.
-
-Contexto que el revisor debe conocer: las claves de `.env` están en formato
-legacy (`eyJ…`) y no en el formato nuevo `sb_publishable_` / `sb_secret_`. Eso
-**sugiere** HS256, pero no lo demuestra: Supabase permite migrar la clave de
-firma conservando las API keys antiguas. Por eso hay que mirarlo, no deducirlo.
-
-- [ ] **Step 3: Si es HS256, migrar a claves asimétricas**
-
-En el panel: `Settings → API → JWT Keys → Migrate to asymmetric keys`. Elegir
-ES256.
-
-Tras migrar, comprobar manualmente que siguen funcionando:
-
-```text
-access token nuevo
-refresh token
-usuario anónimo
-usuario registrado
-miembro de organización
-expiración y renovación
-revocación de sesión
+```json
+{
+  "keys": [
+    {
+      "alg": "ES256",
+      "crv": "P-256",
+      "kty": "EC",
+      "use": "sig",
+      "key_ops": ["verify"]
+    }
+  ]
+}
 ```
 
-Si la migración no puede hacerse ahora, la alternativa es `getUser()` **como
-medida temporal explícita**, documentada en el preflight con quién la aprobó y
-cuándo se revierte. No se adopta en silencio: mete una llamada de red por
-mensaje en el camino crítico.
+Una clave asimétrica publicada en el JWKS significa que la clave **activa** de
+firma es esa. La entrada «Legacy HS256 (Shared Secret)» que aparece en el panel
+es la clave _previamente usada_, que Supabase conserva para validar tokens
+antiguos todavía vigentes. No es la que firma.
 
-- [ ] **Step 4: Escribir el resultado**
+Por tanto: **`AUTH_VERIFY = getClaims`**. No hay migración que hacer y el
+Step 5 no aplica.
+
+Si el JWKS devolviera `{"keys":[]}`, entonces sí sería HS256 y habría que
+migrar en `Settings → API → JWT Keys` antes de la Tarea 8.
+
+- [ ] **Step 3: Generar la clave de firma asimétrica del Supabase local**
+
+Sin esto, local y producción no se parecen: el stack local del CLI arranca por
+defecto con el secreto HS256 de demostración, así que `getClaims()` no podría
+verificar en local y caería a una llamada de red. Los tests pasarían, pero
+estarían ejercitando un camino distinto del de producción.
+
+`supabase/config.toml:168` ya tiene la opción preparada, comentada.
+
+```bash
+cd /c/Users/DELL/Desktop/code/herramientas/tess
+supabase gen signing-key --algorithm ES256 > supabase/signing_keys.json
+```
+
+Descomentar y dejar la línea 168 así:
+
+```toml
+# Path to JWT signing key. DO NOT commit your signing keys file to git.
+signing_keys_path = "./signing_keys.json"
+```
+
+- [ ] **Step 4: Excluir la clave del control de versiones**
+
+El propio `config.toml` lo advierte: **DO NOT commit your signing keys file.**
+
+Añadir a `.gitignore`:
+
+```gitignore
+# Clave de firma JWT del Supabase local. Nunca se commitea.
+supabase/signing_keys.json
+```
+
+Verificar que git la ignora:
+
+```bash
+git check-ignore -v supabase/signing_keys.json
+```
+
+Esperado: una línea citando la regla de `.gitignore`. Si no imprime nada, la
+regla no está aplicando y **no se sigue** hasta arreglarlo.
+
+- [ ] **Step 5: Reiniciar el stack local y comprobar que firma con ES256**
+
+```bash
+supabase stop && supabase start
+curl -s "http://127.0.0.1:54321/auth/v1/.well-known/jwks.json"
+```
+
+Esperado: un JWKS con `"alg":"ES256"`, igual que el hospedado. Si devuelve
+`{"keys":[]}`, el `signing_keys_path` no se aplicó: revisar la ruta, que es
+relativa a `supabase/`.
+
+- [ ] **Step 6: Escribir el resultado**
 
 Crear `docs/superpowers/plans/2026-09-19-fase-2-preflight.md` con:
 
 ```markdown
 # Preflight Fase 2
 
-Fecha: <hoy>
-Verificado por: <persona>
+Fecha: 2026-09-19
 
 ## Claves de firma JWT
 
-Tipo activo: <ES256 | RS256 | HS256 legacy>
-Decisión: AUTH_VERIFY = <getClaims | getUser-temporal>
-Migración realizada: <sí, fecha | no aplica | pendiente>
+Proyecto hospedado (mpntdrcsdspuyfltvexs): ES256 / P-256, confirmado por JWKS.
+La entrada «Legacy HS256» del panel es la clave previamente usada, no la activa.
+
+Supabase local: ES256, mediante `signing_keys_path` en config.toml.
+El archivo `supabase/signing_keys.json` está en .gitignore.
+
+Decisión: AUTH_VERIFY = getClaims
+Migración necesaria: no
 
 ## Variables de entorno
 
-SUPABASE_URL: <presente|falta>
-SUPABASE_ANON_KEY: <presente|falta>
-SUPABASE_SERVICE_ROLE_KEY: <presente|falta>
-MODEL_PROVIDER: <presente|falta>
-MODEL_NAME: <presente|falta>
-AI_GATEWAY_API_KEY: <presente|falta>
+Las seis presentes. SUPABASE_URL apunta al stack local
+(http://127.0.0.1:54321), que es lo correcto para desarrollo: las migraciones
+de F2 no se aplican al proyecto hospedado hasta el despliegue.
+
+SUPABASE_URL: presente (local)
+SUPABASE_ANON_KEY: presente
+SUPABASE_SERVICE_ROLE_KEY: presente
+MODEL_PROVIDER: presente
+MODEL_NAME: presente
+AI_GATEWAY_API_KEY: presente
 ```
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
-git add docs/superpowers/plans/2026-09-19-fase-2-preflight.md
-git commit -m "docs(fase-2): resultado del preflight de claves JWT y entorno"
+git add docs/superpowers/plans/2026-09-19-fase-2-preflight.md supabase/config.toml .gitignore
+git commit -m "chore(fase-2): clave de firma ES256 en local y resultado del preflight"
 ```
 
 ---
@@ -1304,7 +1363,7 @@ git commit -m "feat(api): cliente por-peticion con el JWT del usuario y service_
 
 ### Task 8: Autenticación — verificación local del JWT
 
-**Depende del resultado de la Tarea 1.** Si el preflight dijo `getClaims`, se implementa tal cual. Si dijo `getUser-temporal`, se sustituye la llamada marcándolo con un comentario que cite el preflight.
+La Tarea 1 confirmó `AUTH_VERIFY = getClaims`: el proyecto hospedado firma con ES256 y el stack local también, tras el `signing_keys_path`. Se implementa la verificación local, sin ramas condicionales.
 
 **Files:**
 
@@ -1406,25 +1465,21 @@ async function plugin(app: FastifyInstance): Promise<void> {
       const token = extraerBearer(request.headers.authorization);
 
       if (!token) {
-        return reply
-          .code(401)
-          .send({
-            code: 'unauthorized',
-            message: 'Falta la sesión.',
-            retryable: false,
-          });
+        return reply.code(401).send({
+          code: 'unauthorized',
+          message: 'Falta la sesión.',
+          retryable: false,
+        });
       }
 
       const { data, error } = await app.userClient(token).auth.getClaims(token);
 
       if (error || !data?.claims?.sub) {
-        return reply
-          .code(401)
-          .send({
-            code: 'unauthorized',
-            message: 'Sesión inválida o expirada.',
-            retryable: false,
-          });
+        return reply.code(401).send({
+          code: 'unauthorized',
+          message: 'Sesión inválida o expirada.',
+          retryable: false,
+        });
       }
 
       request.auth = {
@@ -1467,32 +1522,28 @@ await app.register(authPlugin);
 Run: `pnpm --filter @teams4soft/api test src/plugins/auth.test.ts`
 Expected: PASS.
 
-- [ ] **Step 5: Si el preflight dijo `getUser-temporal`, ajustar**
+- [ ] **Step 5: Verificar que la verificación es local, no de red**
 
-Solo en ese caso, sustituir la llamada del Step 3 por:
+Con el stack local levantado, comprobar que `getClaims()` resuelve sin llamar
+a `/auth/v1/user`:
 
-```ts
-// TEMPORAL: el proyecto sigue con el secreto HS256 heredado, así que
-// getClaims() no puede verificar en local. Ver el preflight. Revertir a
-// getClaims() en cuanto se migre a claves asimétricas.
-const { data, error } = await app.userClient(token).auth.getUser(token);
-
-if (error || !data?.user) {
-  return reply
-    .code(401)
-    .send({
-      code: 'unauthorized',
-      message: 'Sesión inválida o expirada.',
-      retryable: false,
-    });
-}
-
-request.auth = {
-  userId: data.user.id,
-  isAnonymous: data.user.is_anonymous === true,
-  token,
-};
+```bash
+cd services/api
+node --input-type=module -e "
+  import { createClient } from '@supabase/supabase-js';
+  const c = createClient('http://127.0.0.1:54321', process.env.SUPABASE_ANON_KEY);
+  const { data } = await c.auth.signInAnonymously();
+  const t0 = Date.now();
+  await c.auth.getClaims(data.session.access_token);
+  await c.auth.getClaims(data.session.access_token);
+  console.log('dos verificaciones en', Date.now() - t0, 'ms');
+"
 ```
+
+Esperado: unos pocos milisegundos. El JWKS se descarga una vez y se cachea, así
+que la segunda verificación no toca la red. Si tardara cientos de milisegundos
+por llamada, la clave local no es asimétrica y el Step 3 de la Tarea 1 no se
+aplicó.
 
 - [ ] **Step 6: Commit**
 
@@ -1897,13 +1948,11 @@ export async function visitorSessionsRoute(
     const parsed = visitorSessionRequestSchema.safeParse(request.body);
 
     if (!parsed.success) {
-      return reply
-        .code(400)
-        .send({
-          code: 'invalid_request',
-          message: 'Clave pública ausente o mal formada.',
-          retryable: false,
-        });
+      return reply.code(400).send({
+        code: 'invalid_request',
+        message: 'Clave pública ausente o mal formada.',
+        retryable: false,
+      });
     }
 
     const settings = await app.readWidgetSettings(parsed.data.publicKey);
@@ -1912,24 +1961,20 @@ export async function visitorSessionsRoute(
     // 1. Origen. Se comprueba antes que nada y con 403, porque es lo único
     //    que el navegador no puede falsificar desde otra página.
     if (!origin || !settings || !settings.allowed_origins.includes(origin)) {
-      return reply
-        .code(403)
-        .send({
-          code: 'forbidden_origin',
-          message: 'Origen no autorizado.',
-          retryable: false,
-        });
+      return reply.code(403).send({
+        code: 'forbidden_origin',
+        message: 'Origen no autorizado.',
+        retryable: false,
+      });
     }
 
     // 2. Clave y proyecto. 404 y no 403: no confirmamos qué proyectos existen.
     if (!settings.visitor_access) {
-      return reply
-        .code(404)
-        .send({
-          code: 'project_not_found',
-          message: 'Proyecto no disponible.',
-          retryable: false,
-        });
+      return reply.code(404).send({
+        code: 'project_not_found',
+        message: 'Proyecto no disponible.',
+        retryable: false,
+      });
     }
 
     // 3. Rate limit por IP. trustProxy hace que request.ip sea la IP real.
@@ -2356,26 +2401,22 @@ export async function conversationsRoute(app: FastifyInstance): Promise<void> {
       );
 
       if (!parsed.success) {
-        return reply
-          .code(400)
-          .send({
-            code: 'invalid_request',
-            message: 'Cuerpo inválido.',
-            retryable: false,
-          });
+        return reply.code(400).send({
+          code: 'invalid_request',
+          message: 'Cuerpo inválido.',
+          retryable: false,
+        });
       }
 
       const client = app.userClient(request.auth.token);
       const proyecto = await resolveProject(client, request.params.projectId);
 
       if (!proyecto) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Proyecto no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Proyecto no disponible.',
+          retryable: false,
+        });
       }
 
       const { data, error } = await client
@@ -2390,13 +2431,11 @@ export async function conversationsRoute(app: FastifyInstance): Promise<void> {
         .single();
 
       if (error || !data) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Proyecto no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Proyecto no disponible.',
+          retryable: false,
+        });
       }
 
       return reply.code(201).send({ conversationId: data.id });
@@ -2420,13 +2459,11 @@ export async function conversationsRoute(app: FastifyInstance): Promise<void> {
         .limit(200);
 
       if (error) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Conversación no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Conversación no disponible.',
+          retryable: false,
+        });
       }
 
       return reply.send(
@@ -2599,13 +2636,11 @@ export async function leadsRoute(app: FastifyInstance): Promise<void> {
       const proyecto = await resolveProject(client, request.params.projectId);
 
       if (!proyecto) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Proyecto no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Proyecto no disponible.',
+          retryable: false,
+        });
       }
 
       // is_project_member es la función de 0006. Se invoca con el JWT del
@@ -2642,26 +2677,22 @@ export async function leadsRoute(app: FastifyInstance): Promise<void> {
       const parsed = leadRequestSchema.safeParse(request.body);
 
       if (!parsed.success) {
-        return reply
-          .code(400)
-          .send({
-            code: 'invalid_request',
-            message: 'Se requiere correo o nombre.',
-            retryable: false,
-          });
+        return reply.code(400).send({
+          code: 'invalid_request',
+          message: 'Se requiere correo o nombre.',
+          retryable: false,
+        });
       }
 
       const client = app.userClient(request.auth.token);
       const proyecto = await resolveProject(client, request.params.projectId);
 
       if (!proyecto) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Proyecto no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Proyecto no disponible.',
+          retryable: false,
+        });
       }
 
       const { data: anterior } = await client
@@ -2690,13 +2721,11 @@ export async function leadsRoute(app: FastifyInstance): Promise<void> {
         .single();
 
       if (error || !data) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Proyecto no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Proyecto no disponible.',
+          retryable: false,
+        });
       }
 
       return reply.code(anterior ? 200 : 201).send({ leadId: data.id });
@@ -3699,26 +3728,22 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
       const parsed = sendMessageRequestSchema.safeParse(request.body);
 
       if (!parsed.success) {
-        return reply
-          .code(400)
-          .send({
-            code: 'invalid_request',
-            message: 'Mensaje vacío o demasiado largo.',
-            retryable: false,
-          });
+        return reply.code(400).send({
+          code: 'invalid_request',
+          message: 'Mensaje vacío o demasiado largo.',
+          retryable: false,
+        });
       }
 
       const client = app.userClient(request.auth.token);
       const proyecto = await resolveProject(client, request.params.projectId);
 
       if (!proyecto) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Proyecto no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Proyecto no disponible.',
+          retryable: false,
+        });
       }
 
       const { data: conversacion } = await client
@@ -3728,13 +3753,11 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
         .maybeSingle();
 
       if (!conversacion) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Conversación no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Conversación no disponible.',
+          retryable: false,
+        });
       }
 
       // 1. Mensaje del usuario. Si RLS lo rechaza, 404 sin abrir el stream:
@@ -3752,13 +3775,11 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
         .single();
 
       if (errorUsuario) {
-        return reply
-          .code(404)
-          .send({
-            code: 'project_not_found',
-            message: 'Conversación no disponible.',
-            retryable: false,
-          });
+        return reply.code(404).send({
+          code: 'project_not_found',
+          message: 'Conversación no disponible.',
+          retryable: false,
+        });
       }
 
       // 2. Título, sin llamada al modelo.
