@@ -2408,7 +2408,7 @@ git commit -m "feat(api): CORS con allowlist dinamica cacheada de los proyectos"
 - Consumes: `app.userClient()` (Tarea 7), `app.authenticate` (Tarea 8), `createConversationRequestSchema` (Tarea 5).
 - Produces: `resolveProject(client, projectId): Promise<ResolvedProject | null>`, rutas `POST /v1/projects/:projectId/conversations` y `GET /v1/projects/:projectId/conversations/:conversationId/messages`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/http/conversations.test.ts`:
 
@@ -2500,12 +2500,12 @@ describe('POST /v1/projects/:projectId/conversations', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/http/conversations.test.ts`
 Expected: FAIL, la ruta no existe.
 
-- [ ] **Step 3: Escribir el resolver**
+- [x] **Step 3: Escribir el resolver**
 
 Crear `services/api/src/domain/conversations/resolve-project.ts`:
 
@@ -2545,7 +2545,7 @@ export async function resolveProject(
 }
 ```
 
-- [ ] **Step 4: Escribir la ruta**
+- [x] **Step 4: Escribir la ruta**
 
 Crear `services/api/src/http/conversations.route.ts`:
 
@@ -2661,12 +2661,12 @@ import { conversationsRoute } from './http/conversations.route.js';
 await app.register(conversationsRoute);
 ```
 
-- [ ] **Step 5: Ejecutar los tests**
+- [x] **Step 5: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/http/conversations.test.ts && pnpm --filter @teams4soft/api typecheck`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api
