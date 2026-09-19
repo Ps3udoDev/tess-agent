@@ -42,10 +42,25 @@ revoke all on public.leads from anon;
 -- lee con service_role al acuñar, que es antes de que exista un JWT.
 grant select, insert, update, delete on public.project_widget_settings to authenticated;
 
+-- Autoriza contra la organización REAL del proyecto, no contra la columna que
+-- manda el cliente. Un campo de autorización que viene del cliente no es una
+-- autorización: es la misma regla que 0008 aplica a leads.
 create policy project_widget_settings_admin on public.project_widget_settings
   for all to authenticated
-  using (public.is_org_admin(organization_id))
-  with check (public.is_org_admin(organization_id));
+  using (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_widget_settings.project_id
+        and public.is_org_admin(p.organization_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_widget_settings.project_id
+        and public.is_org_admin(p.organization_id)
+    )
+  );
 
 -- -----------------------------------------------------------------------------
 -- projects: el visitante necesita leer su fila para resolver organization_id.
@@ -122,8 +137,14 @@ create policy leads_insert_own on public.leads
 
 create policy leads_update_own on public.leads
   for update to authenticated
-  using (auth_user_id = (select auth.uid()))
-  with check (auth_user_id = (select auth.uid()));
+  using (
+    auth_user_id = (select auth.uid())
+    and public.project_accepts_visitors(project_id)
+  )
+  with check (
+    auth_user_id = (select auth.uid())
+    and public.project_accepts_visitors(project_id)
+  );
 
 -- Permite al widget saber, al recargar, que esta persona ya dejó sus datos.
 create policy leads_select_own on public.leads
