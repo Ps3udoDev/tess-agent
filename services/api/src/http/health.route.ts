@@ -1,7 +1,8 @@
-/**
- * Rutas de `health`.
- *
- * TODO(fase-2): implementar como plugin Fastify con validación por JSON Schema
- * en entrada y salida.
- */
-export {};
+import type { FastifyInstance } from 'fastify';
+
+export async function healthRoute(app: FastifyInstance): Promise<void> {
+  app.get('/health', async () => ({
+    status: 'ok',
+    release: app.env.APP_RELEASE,
+  }));
+}

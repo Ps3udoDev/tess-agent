@@ -80,9 +80,7 @@ export const viewerResponseSchema = z.object({
   userId: z.uuid(),
   isAnonymous: z.boolean(),
   isProjectMember: z.boolean(),
-  lead: z
-    .object({ email: z.string().nullable(), fullName: z.string().nullable() })
-    .nullable(),
+  lead: z.object({ email: z.string().nullable(), fullName: z.string().nullable() }).nullable(),
   collectLeadsFromMembers: z.boolean(),
 });
 
