@@ -48,26 +48,77 @@ renegociar.
 | -------------------------------------------- | ------------- | ----------------------------- | --------------------------------- |
 | `AssistantState` (7 estados)                 | F1            | F2 vía SSE, F4                | lo implementa                     |
 | `<teams4soft-assistant>` atributos y eventos | F1            | todas                         | lo implementa                     |
-| `AssistantStreamEvent` (5 eventos)           | F2            | F3 añade `assistant.source`   | no lo toca, ya está tipado        |
+| `AssistantStreamEvent` (5 eventos)           | ya tipado     | F2 lo produce, F3 emite `assistant.source` | no lo toca |
 | `tess-client` (HTTP/SSE)                     | F2            | F3, F4                        | stub; solo el atributo `api-url`  |
 | Esquema Supabase (12 tablas)                 | ya migrado    | F2, F3, F4                    | no lo toca                        |
 | Allowlist de herramientas MCP                | F4            | F5                            | fuera de alcance                  |
 
-La costura clave es `api-url`: en Fase 1 el web component lo acepta y lo guarda
-sin usarlo. En Fase 2 se lo pasa a `tess-client`. Ningún archivo de Fase 1
-cambia por ello.
+#### `AssistantStreamEvent` no se renegocia en ninguna fase
+
+La versión anterior de esta tabla decía que F3 "añade" `assistant.source`, lo
+cual contradecía la premisa de que un contrato congelado no se renegocia.
+
+La contradicción era del documento, no del código:
+`packages/tess-types/src/events.ts` **ya declara los cinco eventos, incluido
+`assistant.source`**. Ninguna fase añade variantes. F2 implementa el productor
+y emite los cuatro primeros; F3 empieza a emitir `assistant.source` cuando hay
+RAG que citar. El tipo no cambia.
+
+Se conserva la forma `{ event, data }` que ya está en el repo, en vez de
+aplanarla a `{ type, ...campos }`. Refleja el formato de cable de SSE —líneas
+`event:` y `data:`—, así que el parser mapea uno a uno sin traducción
+intermedia.
+
+#### Punto de inyección del cliente, congelado en F1
+
+Decir "en F2 se lo pasa a `tess-client`" dejaba abierto *cómo*, y eso obligaría
+a reestructurar el web component en F2. Se congela ahora la costura:
+
+```ts
+// en tess-types: la interfaz que F2 debe satisfacer, definida ya en F1
+export interface TessClientLike {
+  sendMessage(input: SendMessageInput): AsyncIterable<AssistantStreamEvent>;
+}
+
+// en tess-client: lo único que F1 implementa
+export function createNoopTessClient(): TessClientLike;
+```
+
+El web component expone `setClient(client: TessClientLike): void` y, si nadie
+inyecta uno, usa el noop. `api-url` y `project-id` se guardan en una
+`TessAssistantConfig` interna que el componente pasará al factory del cliente
+real.
+
+Resultado: en F2 cambia **solo la implementación** de `createTessClient`. La
+API pública del web component —atributos, métodos y eventos— no se toca.
 
 ### Puertas de salida por fase
 
 **F1 · Componente visual.** `tess-core`, `tess-rive`, `tess-web-component`,
 `tess-svelte` y la demo con panel de pruebas.
 
-> Gate: `pnpm build && pnpm test && pnpm typecheck && pnpm lint` en verde; la
-> demo muestra los siete estados sobre el avatar real; los tests de `destroy()`
-> verifican que se llamó `rive.cleanup()`, que ambos observers quedaron
-> desconectados y que la suscripción al core fue cancelada, y el botón
-> destroy/remount de la demo lo confirma a mano; con `prefers-reduced-motion`
-> activo el avatar no anima.
+> Gate, en tres bloques.
+>
+> **Automático:** `pnpm build && pnpm test && pnpm typecheck && pnpm lint` en
+> verde. `npm pack` (o `pnpm pack`) produce tarball válido para los cuatro
+> paquetes publicables y `publint` no reporta errores de exports. El bundle
+> `tess.global.js` **no contiene Svelte** —el web component es vanilla; si
+> Svelte aparece en el grafo, es una fuga del wrapper— ni URLs de backend ni
+> secretos. Los tests de `destroy()` verifican que se llamó `rive.cleanup()`,
+> que ambos observers quedaron desconectados y que la suscripción al core fue
+> cancelada.
+>
+> **Integración:** una demo limpia que instala el paquete **construido** (no el
+> workspace) monta el componente y funciona. El fallback CSS aparece cuando se
+> apunta `src` a un `.riv` inexistente.
+>
+> **Manual, en la demo:** los siete estados sobre el avatar real; el botón
+> destroy/remount sin fugas; con `prefers-reduced-motion` activo el avatar
+> queda estático; launcher y diálogo recorribles **solo con teclado**
+> —Tab hasta el launcher, Enter para abrir, Escape para cerrar, y el foco
+> vuelve al launcher—; y la **QA visual de los transitorios**: `success` y
+> `error` deben terminar su animación justo cuando el estado lógico vuelve a
+> `idle`. Si se desincronizan, se ajusta `transientMs`, no el `.riv`.
 
 **F2 · Backend de chat.** `services/api` en Fastify con auth Supabase, RLS por
 tenant, CRUD de conversaciones y mensajes, y endpoint SSE con respuestas
@@ -114,9 +165,12 @@ suscriptores. El estado no se escribe en dos sitios.
 ### `tess-core`
 
 ```ts
+/** `offline` es derivado de la conectividad: el integrador no puede pedirlo. */
+export type RequestedState = Exclude<AssistantState, 'offline'>;
+
 export interface TessSnapshot {
   state: AssistantState; // estado efectivo, lo que se pinta
-  requested: AssistantState; // lo que pidió el integrador
+  requested: RequestedState; // lo que pidió el integrador
   reducedMotion: boolean;
   online: boolean;
 }
@@ -134,9 +188,44 @@ export function createTessCore(options?: TessCoreOptions): TessCore;
 Tres comportamientos, y solo estos tres:
 
 **Estados transitorios.** `setState('success')` vuelve solo a `idle` tras
-`transientMs`; por defecto 1600 ms para `success` y 2400 ms para `error`. Si
-llega otro `setState` antes, el temporizador se cancela. Es la semántica de
-trigger del `.riv` expresada una sola vez, en el único sitio que la conoce.
+`transientMs`, configurable:
+
+```ts
+createTessCore({ transientMs: { success: 1920, error: 2520 } });
+```
+
+Los defaults **no son estimaciones**: salen de medir `tess-rive/scene.rml`.
+
+| Animación      | Frames @60fps | Duración | Blend de salida | Total    |
+| -------------- | ------------- | -------- | --------------- | -------- |
+| `anim_success` | 108           | 1800 ms  | 120 ms          | 1920 ms  |
+| `anim_error`   | 144           | 2400 ms  | 120 ms          | 2520 ms  |
+
+Los valores provisionales anteriores —1600 y 2400 ms— eran **ambos
+demasiado cortos**: el estado lógico habría vuelto a `idle` con la animación
+aún corriendo, 320 ms antes en `success` y 120 ms antes en `error`.
+
+**Duración lógica y duración visual son cosas distintas, y el `.riv` ya
+resuelve la visual.** Los estados `success` y `error` de `TessStateMachine`
+llevan una transición incondicional a `idle` con `enableExitTime="true"`,
+`exitTime="100"` y `duration="120"`. Es decir, el avatar vuelve solo a idle
+al terminar la animación, sin que nadie se lo pida.
+
+El temporizador de `tess-core` no conduce el retorno visual: gobierna el
+**estado lógico**, el que se reporta en `tess:state` y el que ve el
+integrador. Los defaults se eligen para que ambos coincidan; si se
+desincronizan, es el lógico el que se ajusta.
+
+**Cancelación.** Cualquier `setState` posterior cancela el temporizador
+pendiente. Los casos que los tests deben cubrir explícitamente:
+
+- `success → thinking` antes de que venza: gana `thinking`, y el temporizador
+  viejo **no** puede devolver a `idle` después.
+- `error → idle` manual: cancela sin efectos posteriores.
+- `success → offline → online`: al reconectar se restaura `success` solo si el
+  temporizador aún no había vencido; si venció durante el corte, se restaura
+  `idle`.
+- `destroy()` con temporizador pendiente: se cancela y no notifica a nadie.
 
 **Offline como override derivado.** Al perder red, `state` pasa a `'offline'`
 mientras `requested` conserva lo que pidió el integrador. Al volver la red se
@@ -146,6 +235,22 @@ solo se perdería el estado en curso.
 **Reduced-motion.** Vía `matchMedia('(prefers-reduced-motion: reduce)')` con
 listener. No es un estado sino una señal paralela, porque el `.riv` la expone
 como booleano independiente que convive con los demás.
+
+`tess-core` solo propaga la señal; no tiene que suprimir nada. La state machine
+ya trata `prefers_reduced_motion` como override duro: **todos** los estados
+tienen una transición a `anim_reduced_motion` —una pose estática de un solo
+frame— con `duration="0"` en cuanto el booleano pasa a `true`, y vuelven a
+`idle` cuando pasa a `false`.
+
+**Después de `destroy()` el core queda inerte:** ignora `setState`, no notifica
+a ningún suscriptor, cancela el temporizador pendiente y desengancha los
+listeners de `matchMedia` y de conectividad. `getSnapshot()` sigue devolviendo
+el último snapshot conocido. Llamar `destroy()` dos veces no tiene efecto
+adicional.
+
+`setState` con un valor fuera de `RequestedState` —`'offline'` incluido— se
+ignora en runtime y se registra por `onError`, ya que TypeScript solo protege
+a quien compila.
 
 `TessCoreOptions` inyecta `media` y `online` para poder testear sin navegador.
 Su única dependencia es `@teams4soft/tess-types`, de la que consume el
@@ -218,7 +323,12 @@ botón en blanco.
 Semántica de los atributos, para que no queden a interpretación:
 
 - `theme="auto"` resuelve contra `prefers-color-scheme`; `light` y `dark` lo
-  fuerzan.
+  fuerzan. **Afecta solo al chrome CSS del componente** —launcher, diálogo,
+  bordes, fondo y texto—. El avatar conserva su paleta propia: `TessStateMachine`
+  declara exactamente tres triggers y cuatro booleanos, ninguno de color ni
+  numérico, así que no hay forma de retintar el artboard desde fuera. Si en el
+  futuro se añaden inputs de color al `.riv`, este atributo podrá extenderse
+  sin romper la API.
 - `size` es un enum cerrado de los cuatro valores con QA capturada, no un
   número libre de píxeles. Un valor fuera del enum cae al defecto `96` y emite
   `tess:error`.
