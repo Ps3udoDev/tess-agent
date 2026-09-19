@@ -15,9 +15,11 @@ import { supabasePlugin } from './plugins/supabase.js';
 import { authPlugin } from './plugins/auth.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
 import { corsPlugin } from './plugins/cors.js';
+import { createModelProvider, type ModelProvider } from './agent/model-provider.js';
 
 export interface AppOverrides {
-  env?: Partial<TessEnv>;
+  env?: Partial<TessEnv> | undefined;
+  modelProvider?: ModelProvider | undefined;
 }
 
 export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyInstance> {
@@ -30,6 +32,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   });
 
   app.decorate('env', env);
+  app.decorate('modelProvider', overrides.modelProvider ?? createModelProvider(env));
   await app.register(sensible);
   await app.register(supabasePlugin);
   await app.register(authPlugin);
@@ -46,5 +49,6 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
 declare module 'fastify' {
   interface FastifyInstance {
     env: TessEnv;
+    modelProvider: ModelProvider;
   }
 }

@@ -3357,7 +3357,7 @@ git commit -m "feat(api): composicion de prompt con reglas no anulables e idioma
 - Consumes: `ModelProvider` (Tarea 14), `TessEnv` (Tarea 6).
 - Produces: `createGatewayModelProvider(options)`, `createModelProvider(env)`, `app.modelProvider`.
 
-- [ ] **Step 1: Escribir el selector**
+- [x] **Step 1: Escribir el selector**
 
 Añadir al final de `services/api/src/agent/model-provider.ts`:
 
@@ -3382,7 +3382,7 @@ export function createModelProvider(env: TessEnv): ModelProvider {
 }
 ```
 
-- [ ] **Step 2: Escribir el proveedor de Gateway**
+- [x] **Step 2: Escribir el proveedor de Gateway**
 
 Crear `services/api/src/agent/model-provider.gateway.ts`:
 
@@ -3427,7 +3427,7 @@ export function createGatewayModelProvider(
 }
 ```
 
-- [ ] **Step 3: Exponerlo en la app**
+- [x] **Step 3: Exponerlo en la app**
 
 En `services/api/src/app.ts`, tras registrar los plugins:
 
@@ -3462,12 +3462,12 @@ declare module 'fastify' {
 }
 ```
 
-- [ ] **Step 4: Verificar el typecheck y el build**
+- [x] **Step 4: Verificar el typecheck y el build**
 
 Run: `pnpm --filter @teams4soft/api typecheck && pnpm --filter @teams4soft/api build`
 Expected: PASS.
 
-- [ ] **Step 5: Verificar que `fake` sigue siendo el default**
+- [x] **Step 5: Verificar que `fake` sigue siendo el default**
 
 ```bash
 cd services/api && node -e "
@@ -3479,7 +3479,7 @@ cd services/api && node -e "
 Esperado: carga sin pedir `AI_GATEWAY_API_KEY`. Si `loadEnv()` exigiera la
 clave con `MODEL_PROVIDER` vacío, el default no se está aplicando.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api

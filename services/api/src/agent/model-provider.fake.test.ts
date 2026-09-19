@@ -45,4 +45,11 @@ describe('createFakeModelProvider', () => {
 
     expect(trozos.join('')).toContain('en');
   });
+
+  it('crea el proveedor fake por defecto cuando no es gateway', async () => {
+    const { createModelProvider } = await import('./model-provider.js');
+    const provider = createModelProvider({ MODEL_PROVIDER: 'fake' } as never);
+    expect(provider).toBeDefined();
+    expect(typeof provider.stream).toBe('function');
+  });
 });
