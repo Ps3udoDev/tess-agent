@@ -342,6 +342,7 @@ git commit -m "feat(db): ajustes del widget y tabla de leads con organizacion de
 **Files:**
 
 - Create: `supabase/migrations/0009_visitor_rls.sql`
+- Create: `supabase/migrations/0010_tenant_integrity.sql`
 
 **Interfaces:**
 
@@ -397,10 +398,26 @@ revoke all on public.leads from anon;
 -- lee con service_role al acuñar, que es antes de que exista un JWT.
 grant select, insert, update, delete on public.project_widget_settings to authenticated;
 
+-- Autoriza contra la organización REAL del proyecto, no contra la columna que
+-- manda el cliente. Leerla de `organization_id` permitiría a un admin de la
+-- organización X crear los ajustes de un proyecto ajeno: el `with check`
+-- pasaría porque sí es admin de X, y la FK contra `projects` no pasa por RLS.
 create policy project_widget_settings_admin on public.project_widget_settings
   for all to authenticated
-  using (public.is_org_admin(organization_id))
-  with check (public.is_org_admin(organization_id));
+  using (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_widget_settings.project_id
+        and public.is_org_admin(p.organization_id)
+    )
+  )
+  with check (
+    exists (
+      select 1 from public.projects p
+      where p.id = project_widget_settings.project_id
+        and public.is_org_admin(p.organization_id)
+    )
+  );
 
 -- -----------------------------------------------------------------------------
 -- projects: el visitante necesita leer su fila para resolver organization_id.
@@ -475,10 +492,19 @@ create policy leads_insert_own on public.leads
     and public.project_accepts_visitors(project_id)
   );
 
+-- La misma guarda que el insert. Sin `project_accepts_visitors`, un visitante
+-- crea su lead en un proyecto abierto y luego lo reubica en el de otra
+-- organización, inyectando datos en su lista de leads.
 create policy leads_update_own on public.leads
   for update to authenticated
-  using (auth_user_id = (select auth.uid()))
-  with check (auth_user_id = (select auth.uid()));
+  using (
+    auth_user_id = (select auth.uid())
+    and public.project_accepts_visitors(project_id)
+  )
+  with check (
+    auth_user_id = (select auth.uid())
+    and public.project_accepts_visitors(project_id)
+  );
 
 -- Permite al widget saber, al recargar, que esta persona ya dejó sus datos.
 create policy leads_select_own on public.leads
@@ -489,6 +515,110 @@ create policy leads_select_member on public.leads
   for select to authenticated
   using (public.is_project_member(project_id));
 ```
+
+- [ ] **Step 1b: Crear `0010_tenant_integrity.sql`**
+
+RLS comprueba quién eres y dónde escribes, pero no que la etiqueta de tenant
+que traes coincida con la fila padre. Un visitante anónimo puede insertar un
+mensaje en **su propia** conversación etiquetándolo con el `project_id` de otro
+tenant; `messages_select` de `0006` filtra por `project_id`, así que los
+miembros de la víctima lo verían. No se arregla con más políticas: se arregla
+derivando las columnas.
+
+Crear `supabase/migrations/0010_tenant_integrity.sql`:
+
+```sql
+-- =============================================================================
+-- 0010 · Integridad de tenant
+--
+-- `organization_id` y `project_id` están denormalizadas para que RLS filtre sin
+-- joins. Eso solo es seguro si son ciertas, así que se derivan de la fila padre
+-- en vez de aceptarse del cliente: la misma disciplina que 0008 aplica a leads.
+--
+-- Las funciones son `security invoker` a propósito: si el llamante no puede ver
+-- el proyecto o la conversación, la derivación no encuentra la fila y el insert
+-- se rechaza. Fallar cerrado es el comportamiento correcto; con `security
+-- definer` esa propiedad desaparecería.
+-- =============================================================================
+
+create or replace function public.project_widget_settings_set_organization()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  select p.organization_id into new.organization_id
+  from public.projects p where p.id = new.project_id;
+
+  if new.organization_id is null then
+    raise exception 'proyecto % inexistente o inaccesible', new.project_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger project_widget_settings_set_organization_trigger
+  before insert or update of project_id on public.project_widget_settings
+  for each row execute function public.project_widget_settings_set_organization();
+
+-- -----------------------------------------------------------------------------
+-- Un lead pertenece al proyecto donde se capturó. Moverlo no es legítimo.
+create or replace function public.leads_forbid_project_change()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  if new.project_id is distinct from old.project_id then
+    raise exception 'un lead no puede cambiar de proyecto';
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger leads_forbid_project_change_trigger
+  before update on public.leads
+  for each row execute function public.leads_forbid_project_change();
+
+-- -----------------------------------------------------------------------------
+create or replace function public.conversations_set_organization()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  select p.organization_id into new.organization_id
+  from public.projects p where p.id = new.project_id;
+
+  if new.organization_id is null then
+    raise exception 'proyecto % inexistente o inaccesible', new.project_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger conversations_set_organization_trigger
+  before insert or update of project_id on public.conversations
+  for each row execute function public.conversations_set_organization();
+
+-- -----------------------------------------------------------------------------
+-- Un mensaje hereda el tenant de su conversación. El cliente no opina.
+create or replace function public.messages_set_tenant()
+returns trigger language plpgsql set search_path = '' as $$
+begin
+  select c.project_id, c.organization_id
+    into new.project_id, new.organization_id
+  from public.conversations c where c.id = new.conversation_id;
+
+  if new.project_id is null then
+    raise exception 'conversación % inexistente o inaccesible', new.conversation_id;
+  end if;
+
+  return new;
+end;
+$$;
+
+create trigger messages_set_tenant_trigger
+  before insert or update of conversation_id on public.messages
+  for each row execute function public.messages_set_tenant();
+```
+
+Sobrescriben **siempre**, no solo cuando el cliente manda nulos: si fueran
+condicionales, bastaría con enviar un valor para evadir la derivación.
 
 - [ ] **Step 2: Aplicar la migración**
 
