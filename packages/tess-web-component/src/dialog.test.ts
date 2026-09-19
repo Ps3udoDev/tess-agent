@@ -64,6 +64,24 @@ describe('diálogo no modal', () => {
     expect(dialog.open).toBe(false);
   });
 
+  it('el foco entra al diálogo al abrir, y Escape se dispara desde el elemento con foco real', () => {
+    const element = create();
+    const dialog = element.shadowRoot!.querySelector('dialog')!;
+    element.openChat();
+
+    // No basta con disparar el keydown sobre `dialog`: hay que comprobar
+    // primero que el foco realmente entró en su subárbol. El launcher es
+    // hermano del diálogo, no descendiente, así que si el foco se quedara
+    // en el launcher (p. ej. porque `openChat()` no encuentra nada
+    // focosable dentro de la cáscara vacía) el listener de `keydown`,
+    // anclado al propio diálogo, jamás lo recibiría.
+    const active = element.shadowRoot!.activeElement;
+    expect(active).toBe(dialog);
+
+    active!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(dialog.open).toBe(false);
+  });
+
   it('devuelve el foco al launcher al cerrar', () => {
     const element = create();
     const launcher =

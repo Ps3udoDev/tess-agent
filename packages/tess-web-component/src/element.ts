@@ -102,7 +102,13 @@ export class TessAssistantElement extends HTMLElement {
     dialog.setAttribute('part', 'dialog');
     dialog.setAttribute('aria-label', labelsFor(this.getAttribute('locale')).dialog);
     dialog.id = `tess-dialog-${Math.random().toString(36).slice(2, 8)}`;
-    // El panel de conversación llega en Fase 2: aquí solo va la cáscara.
+    // El panel de conversación llega en Fase 2: aquí solo va la cáscara. Sin
+    // `tabindex="-1"` el diálogo mismo no sería focosable, `openChat()` no
+    // tendría dónde meter el foco (la cáscara no tiene nada focosable
+    // todavía) y el listener de `keydown` de abajo, anclado al propio
+    // diálogo, jamás recibiría un evento: el foco se quedaría en el
+    // launcher, que es hermano del diálogo, no descendiente suyo.
+    dialog.tabIndex = -1;
     dialog.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -193,11 +199,15 @@ export class TessAssistantElement extends HTMLElement {
     this.#launcher?.setAttribute('aria-expanded', 'true');
     this.setAttribute('open', '');
     this.#rive?.greet();
-    dialog
-      .querySelector<HTMLElement>(
+    // Si no hay nada focosable dentro (la cáscara de Fase 1), el foco entra
+    // en el propio diálogo (ver `dialog.tabIndex = -1` más arriba). Sin esto
+    // el foco se quedaría en el launcher y el Escape de abajo nunca llegaría
+    // a su listener, que está anclado al diálogo.
+    const focusTarget =
+      dialog.querySelector<HTMLElement>(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      )
-      ?.focus();
+      ) ?? dialog;
+    focusTarget.focus();
     this.dispatchEvent(new CustomEvent('tess:open', { bubbles: true, composed: true }));
   }
 
