@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Tess SvelteKit app",
+  "extends": "./base.json",
+  // SvelteKit genera .svelte-kit/tsconfig.json con paths, rootDirs e include.
+  // Los tsconfig de apps/* extienden ESE archivo y este a la vez, así que aquí
+  // solo se declaran opciones que SvelteKit no fija por su cuenta.
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "allowJs": true,
+    "checkJs": true,
+    "types": [],
+    "declaration": false,
+    "declarationMap": false
+  }
+}

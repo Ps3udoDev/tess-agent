@@ -1,0 +1,33 @@
+{
+  "name": "@teams4soft/docs",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Documentación del SDK de Tess.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 5175",
+    "build": "vite build",
+    "preview": "vite preview --port 5175",
+    "prepare": "svelte-kit sync || echo ''",
+    "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf .svelte-kit .vercel build .turbo"
+  },
+  "dependencies": {
+    "@teams4soft/tess-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-vercel": "catalog:",
+    "@sveltejs/kit": "catalog:",
+    "@sveltejs/vite-plugin-svelte": "catalog:",
+    "@teams4soft/config-eslint": "workspace:*",
+    "@teams4soft/config-tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "svelte": "catalog:",
+    "svelte-check": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  }
+}

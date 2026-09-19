@@ -1,0 +1,6 @@
+name: tess-qa
+main: QA_idle
+output:
+  dir: build
+exclude:
+  - build

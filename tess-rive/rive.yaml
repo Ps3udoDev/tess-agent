@@ -1,0 +1,10 @@
+name: tess
+main: Tess
+output:
+  dir: build
+exclude:
+  - build
+  - qa
+logs:
+  file: build/rive.log
+  problems: build/problems.log

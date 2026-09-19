@@ -1,0 +1,13 @@
+{
+  "name": "@teams4soft/config-tsconfig",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Configuraciones TypeScript compartidas del monorepo de Tess.",
+  "license": "UNLICENSED",
+  "files": [
+    "*.json"
+  ],
+  "publishConfig": {
+    "access": "restricted"
+  }
+}

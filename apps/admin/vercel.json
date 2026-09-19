@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "sveltekit",
+  "//": "Root Directory se configura en el proyecto de Vercel (Settings > General). turbo-ignore aborta el build cuando nada de lo que depende esta app ha cambiado.",
+  "ignoreCommand": "npx turbo-ignore"
+}

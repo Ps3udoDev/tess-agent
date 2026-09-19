@@ -1,0 +1,53 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+.turbo/
+.svelte-kit/
+.vercel/
+*.tsbuildinfo
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+supabase/.env
+
+# Sentry
+.sentryclirc
+.sentry-build-plugin/
+
+# Test / cobertura
+coverage/
+.nyc_output/
+
+# Editor / SO
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# --- Excepciones del proyecto Rive ---
+# `tess-rive/` es la fuente de diseño del avatar. Su carpeta `build/`
+# contiene el artefacto versionado que consume packages/tess-rive.
+!tess-rive/build/
+!tess-rive/build/*.riv
+!tess-rive/build/*.rev
+!tess-rive/qa/build/
+!packages/tess-rive/assets/

@@ -1,0 +1,76 @@
+packages:
+  - apps/*
+  - packages/*
+  - services/*
+
+allowBuilds:
+  '@sentry/cli': set this to true or false
+  esbuild: set this to true or false
+
+# Catálogo central de versiones. Los workspaces referencian `catalog:` para
+# que exista un único lugar donde subir una versión en todo el monorepo.
+catalog:
+  # Toolchain
+  typescript: ^6.0.3
+  turbo: ^2.11.2
+  tsup: ^8.5.1
+  tsx: ^4.23.13
+  vite: ^8.3.0
+  vitest: ^5.0.1
+  publint: ^0.3.24
+
+  # Lint / format
+  eslint: ^10.11.0
+  '@eslint/js': ^10.0.1
+  typescript-eslint: ^8.70.0
+  eslint-config-prettier: ^10.1.8
+  eslint-plugin-svelte: ^3.23.0
+  prettier: ^3.9.8
+  prettier-plugin-svelte: ^4.1.1
+  globals: ^17.12.0
+
+  # Svelte
+  svelte: ^5.57.1
+  svelte-check: ^4.7.6
+  '@sveltejs/kit': ^2.70.3
+  '@sveltejs/vite-plugin-svelte': ^7.3.0
+  '@sveltejs/adapter-vercel': ^6.3.4
+  '@sveltejs/adapter-static': ^3.0.10
+
+  # Runtime
+  '@rive-app/canvas': ^2.42.2
+  fastify: ^5.12.5
+  '@fastify/cors': ^11.3.0
+  '@fastify/helmet': ^13.1.1
+  '@fastify/sensible': ^6.0.5
+  '@supabase/supabase-js': ^2.116.0
+  zod: ^4.6.5
+  pino: ^10.3.1
+  dotenv: ^18.0.1
+
+  # Observabilidad
+  '@sentry/sveltekit': ^10.75.0
+  '@sentry/node': ^10.75.0
+
+  # Types
+  '@types/node': ^26.6.2
+
+minimumReleaseAgeExclude:
+  - '@turbo/darwin-64@2.11.2'
+  - '@turbo/darwin-arm64@2.11.2'
+  - '@turbo/linux-64@2.11.2'
+  - '@turbo/linux-arm64@2.11.2'
+  - '@turbo/windows-64@2.11.2'
+  - '@turbo/windows-arm64@2.11.2'
+  - '@types/node@26.6.2'
+  - dotenv@18.0.1
+  - eslint@10.11.0
+  - svelte@5.57.1
+  - turbo@2.11.2
+
+# Scripts de instalación permitidos explícitamente (pnpm los bloquea por
+# defecto). esbuild es el compilador de tsup/vite; @sentry/cli sube los
+# source maps durante el build.
+onlyBuiltDependencies:
+  - '@sentry/cli'
+  - esbuild

@@ -1,0 +1,48 @@
+{
+  "name": "@teams4soft/tess-rive",
+  "version": "0.0.0",
+  "description": "Carga y control del artboard Tess de teams4soft-tess.riv.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json",
+    "./assets/teams4soft-tess.riv": "./assets/teams4soft-tess.riv"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "assets",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo",
+    "sync:riv": "node -e \"require('node:fs').copyFileSync('../../tess-rive/build/tess.riv','assets/teams4soft-tess.riv')\""
+  },
+  "dependencies": {
+    "@teams4soft/tess-core": "workspace:*",
+    "@teams4soft/tess-types": "workspace:*",
+    "@rive-app/canvas": "catalog:"
+  },
+  "devDependencies": {
+    "@teams4soft/config-eslint": "workspace:*",
+    "@teams4soft/config-tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "tsup": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

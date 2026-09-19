@@ -1,0 +1,41 @@
+{
+  "name": "tess",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo de Tess, el asistente visual de Teams4Soft.",
+  "packageManager": "pnpm@11.15.0",
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "test": "turbo run test",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "clean": "turbo run clean",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:reset": "supabase db reset",
+    "supabase:push": "supabase db push",
+    "supabase:diff": "supabase db diff",
+    "supabase:types": "supabase gen types typescript --linked --schema public > packages/tess-types/src/generated/supabase.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "catalog:",
+    "@teams4soft/config-eslint": "workspace:*",
+    "@teams4soft/config-tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "globals": "catalog:",
+    "prettier": "catalog:",
+    "prettier-plugin-svelte": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "type": "module"
+}

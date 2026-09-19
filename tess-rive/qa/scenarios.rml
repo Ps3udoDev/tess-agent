@@ -1,0 +1,221 @@
+<Rive version="1" kind="fragment">
+<Artboard name="QA_idle" width="500" height="500" x="600" y="0" defaultStateMachineId="20:1" styleId="20:4" id="20:16"><LayoutComponentStyle id="20:4" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:6"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:5"></NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:10"><Rectangle width="500" height="500" id="20:7"></Rectangle>
+<Fill id="20:9"><SolidColor colorValue="FFFFFFFF" id="20:8"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:2" duration="600" fps="60" loopValue="oneShot"></LinearAnimation>
+<StateMachine name="QA" id="20:1"><StateMachineLayer name="Driver" id="20:15"><AnyState x="0" y="-180" id="20:11"></AnyState>
+<ExitState x="0" y="180" id="20:12"></ExitState>
+<EntryState x="0" y="0" id="20:14"><StateTransition stateToId="20:3" id="20:13"></StateTransition>
+</EntryState>
+<AnimationState id="20:3" animationId="20:2" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_greeting" width="500" height="500" x="1200" y="0" defaultStateMachineId="20:17" styleId="20:20" id="20:36"><LayoutComponentStyle id="20:20" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:26"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:25"><NestedTrigger name="trigger_greet" id="20:21" inputId="0:1002"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:30"><Rectangle width="500" height="500" id="20:27"></Rectangle>
+<Fill id="20:29"><SolidColor colorValue="FFFFFFFF" id="20:28"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:18" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:21" id="20:24"><KeyedProperty propertyKey="401" id="20:23"><KeyFrameCallback frame="1" id="20:22"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:17"><StateMachineLayer name="Driver" id="20:35"><AnyState x="0" y="-180" id="20:31"></AnyState>
+<ExitState x="0" y="180" id="20:32"></ExitState>
+<EntryState x="0" y="0" id="20:34"><StateTransition stateToId="20:19" id="20:33"></StateTransition>
+</EntryState>
+<AnimationState id="20:19" animationId="20:18" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_listening" width="500" height="500" x="1800" y="0" defaultStateMachineId="20:37" styleId="20:40" id="20:57"><LayoutComponentStyle id="20:40" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:47"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:46"><NestedBool name="is_listening" id="20:41" inputId="0:1005" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:51"><Rectangle width="500" height="500" id="20:48"></Rectangle>
+<Fill id="20:50"><SolidColor colorValue="FFFFFFFF" id="20:49"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:38" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:41" id="20:45"><KeyedProperty propertyKey="238" id="20:44"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:42"></KeyFrameBool>
+<KeyFrameBool frame="240" value="false" interpolationType="hold" id="20:43"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:37"><StateMachineLayer name="Driver" id="20:56"><AnyState x="0" y="-180" id="20:52"></AnyState>
+<ExitState x="0" y="180" id="20:53"></ExitState>
+<EntryState x="0" y="0" id="20:55"><StateTransition stateToId="20:39" id="20:54"></StateTransition>
+</EntryState>
+<AnimationState id="20:39" animationId="20:38" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_thinking" width="500" height="500" x="2400" y="0" defaultStateMachineId="20:58" styleId="20:61" id="20:78"><LayoutComponentStyle id="20:61" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:68"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:67"><NestedBool name="is_thinking" id="20:62" inputId="0:1006" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:72"><Rectangle width="500" height="500" id="20:69"></Rectangle>
+<Fill id="20:71"><SolidColor colorValue="FFFFFFFF" id="20:70"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:59" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:62" id="20:66"><KeyedProperty propertyKey="238" id="20:65"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:63"></KeyFrameBool>
+<KeyFrameBool frame="240" value="false" interpolationType="hold" id="20:64"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:58"><StateMachineLayer name="Driver" id="20:77"><AnyState x="0" y="-180" id="20:73"></AnyState>
+<ExitState x="0" y="180" id="20:74"></ExitState>
+<EntryState x="0" y="0" id="20:76"><StateTransition stateToId="20:60" id="20:75"></StateTransition>
+</EntryState>
+<AnimationState id="20:60" animationId="20:59" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_speaking" width="500" height="500" x="3000" y="0" defaultStateMachineId="20:79" styleId="20:82" id="20:99"><LayoutComponentStyle id="20:82" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:89"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:88"><NestedBool name="is_speaking" id="20:83" inputId="0:1007" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:93"><Rectangle width="500" height="500" id="20:90"></Rectangle>
+<Fill id="20:92"><SolidColor colorValue="FFFFFFFF" id="20:91"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:80" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:83" id="20:87"><KeyedProperty propertyKey="238" id="20:86"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:84"></KeyFrameBool>
+<KeyFrameBool frame="240" value="false" interpolationType="hold" id="20:85"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:79"><StateMachineLayer name="Driver" id="20:98"><AnyState x="0" y="-180" id="20:94"></AnyState>
+<ExitState x="0" y="180" id="20:95"></ExitState>
+<EntryState x="0" y="0" id="20:97"><StateTransition stateToId="20:81" id="20:96"></StateTransition>
+</EntryState>
+<AnimationState id="20:81" animationId="20:80" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_success" width="500" height="500" x="3600" y="0" defaultStateMachineId="20:100" styleId="20:103" id="20:120"><LayoutComponentStyle id="20:103" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:110"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:109"><NestedTrigger name="trigger_success" id="20:104" inputId="0:1003"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:114"><Rectangle width="500" height="500" id="20:111"></Rectangle>
+<Fill id="20:113"><SolidColor colorValue="FFFFFFFF" id="20:112"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:101" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:104" id="20:108"><KeyedProperty propertyKey="401" id="20:107"><KeyFrameCallback frame="1" id="20:105"></KeyFrameCallback>
+<KeyFrameCallback frame="240" id="20:106"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:100"><StateMachineLayer name="Driver" id="20:119"><AnyState x="0" y="-180" id="20:115"></AnyState>
+<ExitState x="0" y="180" id="20:116"></ExitState>
+<EntryState x="0" y="0" id="20:118"><StateTransition stateToId="20:102" id="20:117"></StateTransition>
+</EntryState>
+<AnimationState id="20:102" animationId="20:101" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_error" width="500" height="500" x="4200" y="0" defaultStateMachineId="20:121" styleId="20:124" id="20:140"><LayoutComponentStyle id="20:124" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:130"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:129"><NestedTrigger name="trigger_error" id="20:125" inputId="0:1004"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:134"><Rectangle width="500" height="500" id="20:131"></Rectangle>
+<Fill id="20:133"><SolidColor colorValue="FFFFFFFF" id="20:132"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:122" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:125" id="20:128"><KeyedProperty propertyKey="401" id="20:127"><KeyFrameCallback frame="1" id="20:126"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:121"><StateMachineLayer name="Driver" id="20:139"><AnyState x="0" y="-180" id="20:135"></AnyState>
+<ExitState x="0" y="180" id="20:136"></ExitState>
+<EntryState x="0" y="0" id="20:138"><StateTransition stateToId="20:123" id="20:137"></StateTransition>
+</EntryState>
+<AnimationState id="20:123" animationId="20:122" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_reduced_motion" width="500" height="500" x="4800" y="0" defaultStateMachineId="20:141" styleId="20:144" id="20:160"><LayoutComponentStyle id="20:144" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:150"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:149"><NestedBool name="prefers_reduced_motion" id="20:145" inputId="0:1008" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:154"><Rectangle width="500" height="500" id="20:151"></Rectangle>
+<Fill id="20:153"><SolidColor colorValue="FFFFFFFF" id="20:152"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:142" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:145" id="20:148"><KeyedProperty propertyKey="238" id="20:147"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:146"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:141"><StateMachineLayer name="Driver" id="20:159"><AnyState x="0" y="-180" id="20:155"></AnyState>
+<ExitState x="0" y="180" id="20:156"></ExitState>
+<EntryState x="0" y="0" id="20:158"><StateTransition stateToId="20:143" id="20:157"></StateTransition>
+</EntryState>
+<AnimationState id="20:143" animationId="20:142" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_reduced_interrupt" width="500" height="500" x="5400" y="0" defaultStateMachineId="20:161" styleId="20:164" id="20:190"><LayoutComponentStyle id="20:164" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:180"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:179"><NestedBool name="is_speaking" id="20:165" inputId="0:1007" nestedValue="true"></NestedBool>
+<NestedBool name="prefers_reduced_motion" id="20:169" inputId="0:1008" nestedValue="false"></NestedBool>
+<NestedTrigger name="trigger_error" id="20:175" inputId="0:1004"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:184"><Rectangle width="500" height="500" id="20:181"></Rectangle>
+<Fill id="20:183"><SolidColor colorValue="FFFFFFFF" id="20:182"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:162" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:165" id="20:168"><KeyedProperty propertyKey="238" id="20:167"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:166"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+<KeyedObject objectId="20:169" id="20:174"><KeyedProperty propertyKey="238" id="20:173"><KeyFrameBool frame="0" value="false" interpolationType="hold" id="20:170"></KeyFrameBool>
+<KeyFrameBool frame="90" value="true" interpolationType="hold" id="20:171"></KeyFrameBool>
+<KeyFrameBool frame="360" value="false" interpolationType="hold" id="20:172"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+<KeyedObject objectId="20:175" id="20:178"><KeyedProperty propertyKey="401" id="20:177"><KeyFrameCallback frame="120" id="20:176"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:161"><StateMachineLayer name="Driver" id="20:189"><AnyState x="0" y="-180" id="20:185"></AnyState>
+<ExitState x="0" y="180" id="20:186"></ExitState>
+<EntryState x="0" y="0" id="20:188"><StateTransition stateToId="20:163" id="20:187"></StateTransition>
+</EntryState>
+<AnimationState id="20:163" animationId="20:162" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+<Artboard name="QA_priority" width="500" height="500" x="6000" y="0" defaultStateMachineId="20:191" styleId="20:194" id="20:218"><LayoutComponentStyle id="20:194" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard artboardId="0:123" name="Tess" id="20:208"><NestedStateMachine animationId="0:1163" name="Behavior" id="20:207"><NestedBool name="is_listening" id="20:195" inputId="0:1005" nestedValue="true"></NestedBool>
+<NestedBool name="is_thinking" id="20:199" inputId="0:1006" nestedValue="true"></NestedBool>
+<NestedBool name="is_speaking" id="20:203" inputId="0:1007" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape x="250" y="250" name="QAWhiteBackground" id="20:212"><Rectangle width="500" height="500" id="20:209"></Rectangle>
+<Fill id="20:211"><SolidColor colorValue="FFFFFFFF" id="20:210"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="QA_Drive" id="20:192" duration="600" fps="60" loopValue="oneShot"><KeyedObject objectId="20:195" id="20:198"><KeyedProperty propertyKey="238" id="20:197"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:196"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+<KeyedObject objectId="20:199" id="20:202"><KeyedProperty propertyKey="238" id="20:201"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:200"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+<KeyedObject objectId="20:203" id="20:206"><KeyedProperty propertyKey="238" id="20:205"><KeyFrameBool frame="0" value="true" interpolationType="hold" id="20:204"></KeyFrameBool>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="QA" id="20:191"><StateMachineLayer name="Driver" id="20:217"><AnyState x="0" y="-180" id="20:213"></AnyState>
+<ExitState x="0" y="180" id="20:214"></ExitState>
+<EntryState x="0" y="0" id="20:216"><StateTransition stateToId="20:193" id="20:215"></StateTransition>
+</EntryState>
+<AnimationState id="20:193" animationId="20:192" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+</Rive>
+

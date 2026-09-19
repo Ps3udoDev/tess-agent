@@ -1,0 +1,5 @@
+{
+  "extends": "@teams4soft/config-tsconfig/library.json",
+  "include": ["src/**/*.ts", "*.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

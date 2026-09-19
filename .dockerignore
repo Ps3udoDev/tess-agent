@@ -1,0 +1,18 @@
+# El contexto de build de todos los servicios es la RAÍZ del monorepo.
+**/node_modules
+**/dist
+**/build
+**/.turbo
+**/.svelte-kit
+**/.vercel
+**/coverage
+.git
+.github
+apps
+tess-rive
+supabase
+docs
+**/*.log
+.env
+.env.*
+!.env.example

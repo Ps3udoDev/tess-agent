@@ -1,0 +1,48 @@
+<Rive version="1" kind="fragment">
+<Artboard name="QA_sheet" width="1200" height="600" x="0" y="700" styleId="30:36" defaultStateMachineId="30:33" id="30:46"><LayoutComponentStyle id="30:36" name="Canvas"></LayoutComponentStyle>
+<NestedArtboard name="idle" artboardId="0:123" x="0" y="0" scaleX="0.6" scaleY="0.6" id="30:2"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:1"></NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="greeting" artboardId="0:123" x="300" y="0" scaleX="0.6" scaleY="0.6" id="30:8"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:7"><NestedTrigger id="30:3" name="trigger_greet" inputId="0:1002"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="listening" artboardId="0:123" x="600" y="0" scaleX="0.6" scaleY="0.6" id="30:11"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:10"><NestedBool id="30:9" name="is_listening" inputId="0:1005" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="thinking" artboardId="0:123" x="900" y="0" scaleX="0.6" scaleY="0.6" id="30:14"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:13"><NestedBool id="30:12" name="is_thinking" inputId="0:1006" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="speaking" artboardId="0:123" x="0" y="300" scaleX="0.6" scaleY="0.6" id="30:17"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:16"><NestedBool id="30:15" name="is_speaking" inputId="0:1007" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="success" artboardId="0:123" x="300" y="300" scaleX="0.6" scaleY="0.6" id="30:23"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:22"><NestedTrigger id="30:18" name="trigger_success" inputId="0:1003"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="error" artboardId="0:123" x="600" y="300" scaleX="0.6" scaleY="0.6" id="30:29"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:28"><NestedTrigger id="30:24" name="trigger_error" inputId="0:1004"></NestedTrigger>
+</NestedStateMachine>
+</NestedArtboard>
+<NestedArtboard name="reduced_motion" artboardId="0:123" x="900" y="300" scaleX="0.6" scaleY="0.6" id="30:32"><NestedStateMachine animationId="0:1163" name="TessBehavior" id="30:31"><NestedBool id="30:30" name="prefers_reduced_motion" inputId="0:1008" nestedValue="true"></NestedBool>
+</NestedStateMachine>
+</NestedArtboard>
+<Shape name="QAWhiteBackground" x="600" y="300" id="30:40"><Rectangle width="1200" height="600" id="30:37"></Rectangle>
+<Fill id="30:39"><SolidColor colorValue="FFFFFFFF" id="30:38"></SolidColor>
+</Fill>
+</Shape>
+<LinearAnimation name="SheetDriver" id="30:34" duration="600" fps="60"><KeyedObject objectId="30:3" id="30:6"><KeyedProperty propertyKey="401" id="30:5"><KeyFrameCallback frame="1" id="30:4"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+<KeyedObject objectId="30:18" id="30:21"><KeyedProperty propertyKey="401" id="30:20"><KeyFrameCallback frame="1" id="30:19"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+<KeyedObject objectId="30:24" id="30:27"><KeyedProperty propertyKey="401" id="30:26"><KeyFrameCallback frame="1" id="30:25"></KeyFrameCallback>
+</KeyedProperty>
+</KeyedObject>
+</LinearAnimation>
+<StateMachine name="Preview" id="30:33"><StateMachineLayer name="Driver" id="30:45"><AnyState x="0" y="-180" id="30:41"></AnyState>
+<ExitState x="0" y="180" id="30:42"></ExitState>
+<EntryState x="0" y="0" id="30:44"><StateTransition stateToId="30:35" id="30:43"></StateTransition>
+</EntryState>
+<AnimationState id="30:35" animationId="30:34" x="250" y="0"></AnimationState>
+</StateMachineLayer>
+</StateMachine>
+</Artboard>
+</Rive>

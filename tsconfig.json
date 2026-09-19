@@ -1,0 +1,8 @@
+{
+  // Config raíz solo para el editor y para los archivos sueltos de la raíz.
+  // Cada workspace tiene su propio tsconfig.json; el grafo de build lo resuelve
+  // Turborepo, no los project references de tsc.
+  "extends": "@teams4soft/config-tsconfig/base.json",
+  "include": ["*.ts", "*.js", "*.mjs"],
+  "exclude": ["node_modules", "apps", "packages", "services", "tess-rive"]
+}

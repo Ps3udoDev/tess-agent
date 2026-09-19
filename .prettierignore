@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.turbo/
+.svelte-kit/
+.vercel/
+coverage/
+pnpm-lock.yaml
+tess-rive/
+supabase/.temp/
+packages/tess-types/src/generated/

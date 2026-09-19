@@ -1,0 +1,39 @@
+{
+  "name": "@teams4soft/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "API HTTP principal de Tess (Fastify, desplegada en Cloud Run).",
+  "type": "module",
+  "main": "dist/main.js",
+  "scripts": {
+    "dev": "tsx watch --import ./src/instrument.ts src/main.ts",
+    "build": "tsup",
+    "start": "node --import ./dist/instrument.js dist/main.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run --passWithNoTests",
+    "clean": "rm -rf dist .turbo *.tsbuildinfo"
+  },
+  "dependencies": {
+    "@fastify/cors": "catalog:",
+    "@fastify/helmet": "catalog:",
+    "@fastify/sensible": "catalog:",
+    "@sentry/node": "catalog:",
+    "@supabase/supabase-js": "catalog:",
+    "@teams4soft/tess-types": "workspace:*",
+    "dotenv": "catalog:",
+    "fastify": "catalog:",
+    "pino": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@teams4soft/config-eslint": "workspace:*",
+    "@teams4soft/config-tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "tsup": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

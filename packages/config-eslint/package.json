@@ -1,0 +1,30 @@
+{
+  "name": "@teams4soft/config-eslint",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Configuraciones ESLint flat compartidas del monorepo de Tess.",
+  "license": "UNLICENSED",
+  "exports": {
+    "./base": "./base.js",
+    "./library": "./library.js",
+    "./node": "./node.js",
+    "./svelte": "./svelte.js"
+  },
+  "files": [
+    "*.js"
+  ],
+  "dependencies": {
+    "@eslint/js": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-svelte": "catalog:",
+    "globals": "catalog:",
+    "typescript-eslint": "catalog:"
+  },
+  "peerDependencies": {
+    "eslint": "catalog:"
+  },
+  "publishConfig": {
+    "access": "restricted"
+  }
+}
