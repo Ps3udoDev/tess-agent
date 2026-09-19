@@ -1,4 +1,26 @@
-import { Alignment, Fit, Layout, Rive } from '@rive-app/canvas';
+import * as rivePkg from '@rive-app/canvas';
+
+// `@rive-app/canvas` se distribuye en formato CommonJS empaquetado. En Node
+// ESM nativo (p. ej. pruebas o SSR fuera de Vite), Node no sintetiza named
+// exports en el namespace del módulo para este paquete, pero sí expone las
+// clases en `default`. Este fallback garantiza compatibilidad universal.
+const riveModule = rivePkg as unknown as {
+  Rive?: typeof rivePkg.Rive;
+  Layout?: typeof rivePkg.Layout;
+  Fit?: typeof rivePkg.Fit;
+  Alignment?: typeof rivePkg.Alignment;
+  default?: {
+    Rive?: typeof rivePkg.Rive;
+    Layout?: typeof rivePkg.Layout;
+    Fit?: typeof rivePkg.Fit;
+    Alignment?: typeof rivePkg.Alignment;
+  };
+};
+
+const Rive = (riveModule.Rive ?? riveModule.default?.Rive)!;
+const Layout = (riveModule.Layout ?? riveModule.default?.Layout)!;
+const Fit = (riveModule.Fit ?? riveModule.default?.Fit)!;
+const Alignment = (riveModule.Alignment ?? riveModule.default?.Alignment)!;
 import type { TessCore, TessSnapshot } from '@teams4soft/tess-core';
 import { ARTBOARD_NAME, RIVE_BOOLEANS, RIVE_TRIGGERS, STATE_MACHINE_NAME } from './contract.js';
 
@@ -16,7 +38,32 @@ export interface TessRiveHandle {
   destroy(): void;
 }
 
-const DEFAULT_SRC = new URL('../assets/teams4soft-tess.riv', import.meta.url).href;
+function resolveDefaultSrc(): string {
+  try {
+    if (
+      typeof import.meta !== 'undefined' &&
+      typeof import.meta.url === 'string' &&
+      import.meta.url
+    ) {
+      return new URL('../assets/teams4soft-tess.riv', import.meta.url).href;
+    }
+  } catch {
+    // import.meta.url no es una URL base válida
+  }
+  try {
+    if (typeof document !== 'undefined') {
+      const currentScript = document.currentScript as HTMLScriptElement | null;
+      if (currentScript?.src) {
+        return new URL('assets/teams4soft-tess.riv', currentScript.src).href;
+      }
+    }
+  } catch {
+    // Entorno sin DOM o sin script src
+  }
+  return '';
+}
+
+const DEFAULT_SRC = resolveDefaultSrc();
 
 interface RiveInput {
   name: string;
@@ -33,27 +80,34 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
   let inputs = new Map<string, RiveInput>();
   let previous: TessSnapshot | undefined;
 
-  const rive = new Rive({
-    canvas,
-    src,
-    artboard: ARTBOARD_NAME,
-    stateMachines: STATE_MACHINE_NAME,
-    autoplay: true,
-    layout: new Layout({ fit: Fit.Contain, alignment: Alignment.Center }),
-    onLoad: () => {
-      if (destroyed) return;
-      inputs = new Map(
-        (rive.stateMachineInputs(STATE_MACHINE_NAME) as RiveInput[]).map((input) => [
-          input.name,
-          input,
-        ]),
-      );
-      loaded = true;
-      apply(core.getSnapshot());
-    },
-    onLoadError: (event) =>
-      onError(new Error(`No se pudo cargar el .riv: ${src}`, { cause: event })),
-  });
+  type RiveInstance = InstanceType<typeof Rive>;
+  let rive: RiveInstance | undefined;
+
+  try {
+    rive = new Rive({
+      canvas,
+      src,
+      artboard: ARTBOARD_NAME,
+      stateMachines: STATE_MACHINE_NAME,
+      autoplay: true,
+      layout: new Layout({ fit: Fit.Contain, alignment: Alignment.Center }),
+      onLoad: () => {
+        if (destroyed || !rive) return;
+        inputs = new Map(
+          (rive.stateMachineInputs(STATE_MACHINE_NAME) as RiveInput[]).map((input) => [
+            input.name,
+            input,
+          ]),
+        );
+        loaded = true;
+        apply(core.getSnapshot());
+      },
+      onLoadError: (event) =>
+        onError(new Error(`No se pudo cargar el .riv: ${src}`, { cause: event })),
+    });
+  } catch (error) {
+    onError(error instanceof Error ? error : new Error(String(error)));
+  }
 
   function bool(name: string, value: boolean): void {
     const input = inputs.get(name);
@@ -94,15 +148,15 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
   const viewport = new IntersectionObserver((entries) => {
     if (destroyed) return;
     const visible = entries.some((entry) => entry.isIntersecting);
-    if (visible) rive.play();
-    else rive.pause();
+    if (visible) rive?.play();
+    else rive?.pause();
   });
   viewport.observe(canvas);
 
   // Nitidez en HiDPI: el buffer del canvas debe seguir a su tamaño en CSS.
   const resize = new ResizeObserver(() => {
     if (destroyed) return;
-    rive.resizeDrawingSurfaceToCanvas();
+    rive?.resizeDrawingSurfaceToCanvas();
   });
   resize.observe(canvas);
 
@@ -114,7 +168,7 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
       unsubscribe();
       viewport.disconnect();
       resize.disconnect();
-      rive.cleanup();
+      rive?.cleanup();
     },
   };
 }

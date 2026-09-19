@@ -15,6 +15,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean",
+    "gate:f1": "pnpm build && pnpm test && pnpm typecheck && pnpm lint && node scripts/check-bundle.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "supabase:start": "supabase start",

@@ -38,6 +38,7 @@
     "@teams4soft/config-tsconfig": "workspace:*",
     "eslint": "catalog:",
     "jsdom": "catalog:",
+    "publint": "catalog:",
     "tsup": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

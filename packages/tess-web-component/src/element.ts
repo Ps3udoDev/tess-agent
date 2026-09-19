@@ -24,7 +24,10 @@ import { STYLES } from './styles.js';
 
 const OBSERVED = ['state', 'theme', 'size', 'position', 'api-url', 'locale'] as const;
 
-export class TessAssistantElement extends HTMLElement {
+const BaseElement =
+  typeof HTMLElement !== 'undefined' ? HTMLElement : (class {} as unknown as typeof HTMLElement);
+
+export class TessAssistantElement extends BaseElement {
   static readonly observedAttributes = OBSERVED;
 
   #core: TessCore | undefined;
@@ -288,6 +291,6 @@ export class TessAssistantElement extends HTMLElement {
   }
 }
 
-if (!customElements.get(TAG_NAME)) {
+if (typeof customElements !== 'undefined' && !customElements.get(TAG_NAME)) {
   customElements.define(TAG_NAME, TessAssistantElement);
 }

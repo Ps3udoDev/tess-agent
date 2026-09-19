@@ -193,4 +193,30 @@ describe('teams4soft-assistant', () => {
     element.setClient(fakeClient);
     expect(element.getClient()).toBe(fakeClient);
   });
+
+  it('activa el fallback CSS y emite tess:error con rive-load si mountTessRive falla', () => {
+    const element = create();
+    const calls = vi.mocked(mountTessRive).mock.calls;
+    const canvas = element.shadowRoot!.querySelector('canvas');
+    const call = calls.find((entry) => entry[0]?.canvas === canvas);
+    expect(call).toBeDefined();
+
+    const seen = vi.fn();
+    element.addEventListener('tess:error', seen);
+
+    // Simular error de carga de Rive
+    call![0].onError?.(new Error('Network error loading .riv'));
+
+    expect(seen).toHaveBeenCalledTimes(1);
+    const errorCall = seen.mock.calls[0];
+    expect(errorCall).toBeDefined();
+    expect((errorCall?.[0] as unknown as CustomEvent).detail).toEqual({
+      code: 'rive-load',
+      message: 'Network error loading .riv',
+    });
+
+    const fallback = element.shadowRoot!.querySelector('.fallback');
+    expect(canvas!.classList.contains('hidden')).toBe(true);
+    expect(fallback!.classList.contains('hidden')).toBe(false);
+  });
 });
