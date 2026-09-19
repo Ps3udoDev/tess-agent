@@ -39,6 +39,8 @@ on conflict (project_id) do nothing;
 -- insert into public.project_members (project_id, user_id, role)
 -- values ('00000000-0000-4000-8000-000000000002', '<TU_USER_UUID>', 'owner');
 
+-- Semilla de DESARROLLO LOCAL. `supabase db reset` la ejecuta; `supabase db
+-- push` no. No está pensada para correr contra un proyecto hospedado.
 -- =============================================================================
 -- Semilla de Fase 2: proyecto de desarrollo con widget público
 -- =============================================================================
@@ -95,4 +97,8 @@ puede utilizar su formulario seguro de lead.$prompt$
 from public.projects p
 order by p.created_at
 limit 1
-on conflict (project_id) do update set system_prompt = excluded.system_prompt;
+-- Solo siembra el prompt si el proyecto no tiene uno. Un cliente puede
+-- personalizarlo sin desplegar, así que reejecutar la semilla no debe pisarlo.
+on conflict (project_id) do update
+  set system_prompt = excluded.system_prompt
+  where public.assistant_configs.system_prompt is null;
