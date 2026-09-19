@@ -2691,7 +2691,7 @@ git commit -m "feat(api): resolucion de tenant con 404 y rutas de conversaciones
 - Consumes: `resolveProject()` (Tarea 12), `leadRequestSchema` (Tarea 5).
 - Produces: `upsertLead()`, rutas `GET /v1/projects/:projectId/me` y `POST /v1/projects/:projectId/leads`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/http/leads.test.ts`:
 
@@ -2732,12 +2732,12 @@ describe('fusionarLead', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/http/leads.test.ts`
 Expected: FAIL, no se resuelve `upsert-lead.js`.
 
-- [ ] **Step 3: Escribir la fusión de leads**
+- [x] **Step 3: Escribir la fusión de leads**
 
 Crear `services/api/src/domain/leads/upsert-lead.ts`:
 
@@ -2784,7 +2784,7 @@ export function fusionarLead(
 }
 ```
 
-- [ ] **Step 4: Escribir las rutas**
+- [x] **Step 4: Escribir las rutas**
 
 Crear `services/api/src/http/leads.route.ts`:
 
@@ -2935,12 +2935,12 @@ import { leadsRoute } from './http/leads.route.js';
 await app.register(leadsRoute);
 ```
 
-- [ ] **Step 5: Ejecutar los tests**
+- [x] **Step 5: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/http/leads.test.ts && pnpm --filter @teams4soft/api typecheck`
 Expected: PASS, los tres casos de fusión.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api

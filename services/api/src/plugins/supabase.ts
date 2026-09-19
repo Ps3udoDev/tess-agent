@@ -130,6 +130,18 @@ async function plugin(app: FastifyInstance): Promise<void> {
     return data ?? null;
   });
 
+  app.decorate('readWidgetSettingsByProject', async (projectId: string) => {
+    const { data } = await serviceClient
+      .from('project_widget_settings')
+      .select(
+        'project_id, organization_id, allowed_origins, visitor_access, collect_leads_from_members, greeting',
+      )
+      .eq('project_id', projectId)
+      .maybeSingle();
+
+    return data ?? null;
+  });
+
   app.decorate('listWidgetOrigins', async (): Promise<string[]> => {
     const { data } = await serviceClient
       .from('project_widget_settings')
@@ -149,6 +161,7 @@ declare module 'fastify' {
     insertAssistantMessage(input: AssistantMessageInput): Promise<{ id: string }>;
     recordAuditEvent(input: AuditEventInput): Promise<void>;
     readWidgetSettings(publicKey: string): Promise<WidgetSettings | null>;
+    readWidgetSettingsByProject(projectId: string): Promise<WidgetSettings | null>;
     listWidgetOrigins(): Promise<string[]>;
   }
 }
