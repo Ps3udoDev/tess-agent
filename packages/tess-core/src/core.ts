@@ -1,4 +1,7 @@
 import { isRequestedState, type AssistantState, type RequestedState } from '@teams4soft/tess-types';
+import { browserConnectivity, browserMedia } from './environment.js';
+
+export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 export interface TessSnapshot {
   /** Estado efectivo: lo que se pinta. */
@@ -53,8 +56,29 @@ export function createTessCore(options: TessCoreOptions = {}): TessCore {
 
   let destroyed = false;
   let requested: RequestedState = options.initialState ?? 'idle';
-  const reducedMotion = false;
-  const online = true;
+
+  const connectivity = options.connectivity ?? browserConnectivity();
+  const media = (options.media ?? browserMedia)(REDUCED_MOTION_QUERY);
+
+  let online = connectivity.isOnline();
+  let reducedMotion = media?.matches ?? false;
+
+  const onConnectivity = (value: boolean): void => {
+    if (destroyed || value === online) return;
+    const previous = getSnapshot();
+    online = value;
+    emit(previous);
+  };
+
+  const onMedia = (event: { matches: boolean }): void => {
+    if (destroyed || event.matches === reducedMotion) return;
+    const previous = getSnapshot();
+    reducedMotion = event.matches;
+    emit(previous);
+  };
+
+  const unsubscribeConnectivity = connectivity.subscribe(onConnectivity);
+  media?.addEventListener('change', onMedia);
 
   const transientMs = { ...DEFAULT_TRANSIENT_MS, ...options.transientMs };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -119,6 +143,8 @@ export function createTessCore(options: TessCoreOptions = {}): TessCore {
     if (destroyed) return;
     destroyed = true;
     clearTransient();
+    unsubscribeConnectivity();
+    media?.removeEventListener('change', onMedia);
     listeners.clear();
   }
 

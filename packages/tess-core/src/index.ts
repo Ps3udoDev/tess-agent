@@ -3,9 +3,6 @@
  *
  * Máquina de estados, bus de eventos y política de reduced-motion de Tess,
  * sin dependencia de framework ni de runtime de renderizado.
- *
- * TODO(fase-1): implementar `createTessCore()` con transiciones de estado,
- * suscripción a cambios y detección de `prefers-reduced-motion`.
  */
 import { ASSISTANT_STATES, type AssistantState } from '@teams4soft/tess-types';
 

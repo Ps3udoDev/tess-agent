@@ -52,7 +52,9 @@ describe('estados transitorios', () => {
     core.subscribe(seen);
     core.setState('success');
     seen.mockClear();
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
     core.destroy();
+    expect(vi.getTimerCount()).toBe(0);
     vi.advanceTimersByTime(DEFAULT_TRANSIENT_MS.success);
     expect(seen).not.toHaveBeenCalled();
   });
