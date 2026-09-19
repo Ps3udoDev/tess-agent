@@ -1,11 +1,6 @@
 import { Alignment, Fit, Layout, Rive } from '@rive-app/canvas';
 import type { TessCore, TessSnapshot } from '@teams4soft/tess-core';
-import {
-  ARTBOARD_NAME,
-  RIVE_BOOLEANS,
-  RIVE_TRIGGERS,
-  STATE_MACHINE_NAME,
-} from './contract.js';
+import { ARTBOARD_NAME, RIVE_BOOLEANS, RIVE_TRIGGERS, STATE_MACHINE_NAME } from './contract.js';
 
 export interface MountTessRiveOptions {
   canvas: HTMLCanvasElement;
@@ -21,8 +16,7 @@ export interface TessRiveHandle {
   destroy(): void;
 }
 
-const DEFAULT_SRC = new URL('../assets/teams4soft-tess.riv', import.meta.url)
-  .href;
+const DEFAULT_SRC = new URL('../assets/teams4soft-tess.riv', import.meta.url).href;
 
 interface RiveInput {
   name: string;
@@ -49,14 +43,16 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
     onLoad: () => {
       if (destroyed) return;
       inputs = new Map(
-        (rive.stateMachineInputs(STATE_MACHINE_NAME) as RiveInput[]).map(
-          (input) => [input.name, input],
-        ),
+        (rive.stateMachineInputs(STATE_MACHINE_NAME) as RiveInput[]).map((input) => [
+          input.name,
+          input,
+        ]),
       );
       loaded = true;
       apply(core.getSnapshot());
     },
-    onLoadError: () => onError(new Error(`No se pudo cargar el .riv: ${src}`)),
+    onLoadError: (event) =>
+      onError(new Error(`No se pudo cargar el .riv: ${src}`, { cause: event })),
   });
 
   function bool(name: string, value: boolean): void {
@@ -94,12 +90,30 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
 
   const unsubscribe = core.subscribe(apply);
 
+  // Pausa fuera de viewport: un avatar que no se ve no debe gastar frames.
+  const viewport = new IntersectionObserver((entries) => {
+    if (destroyed) return;
+    const visible = entries.some((entry) => entry.isIntersecting);
+    if (visible) rive.play();
+    else rive.pause();
+  });
+  viewport.observe(canvas);
+
+  // Nitidez en HiDPI: el buffer del canvas debe seguir a su tamaño en CSS.
+  const resize = new ResizeObserver(() => {
+    if (destroyed) return;
+    rive.resizeDrawingSurfaceToCanvas();
+  });
+  resize.observe(canvas);
+
   return {
     greet: () => fire(RIVE_TRIGGERS.greet),
     destroy() {
       if (destroyed) return;
       destroyed = true;
       unsubscribe();
+      viewport.disconnect();
+      resize.disconnect();
       rive.cleanup();
     },
   };

@@ -3,10 +3,7 @@ import { createTessCore, DEFAULT_TRANSIENT_MS } from '@teams4soft/tess-core';
 import { RIVE_BOOLEANS, RIVE_TRIGGERS } from './contract.js';
 import { mountTessRive } from './mount.js';
 
-const inputs = new Map<
-  string,
-  { name: string; value: boolean; fire: ReturnType<typeof vi.fn> }
->();
+const inputs = new Map<string, { name: string; value: boolean; fire: ReturnType<typeof vi.fn> }>();
 
 function makeInput(name: string) {
   const input = { name, value: false, fire: vi.fn() };
