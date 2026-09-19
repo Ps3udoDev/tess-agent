@@ -3681,7 +3681,7 @@ El servidor **nunca** emite `idle` ni `success`. Emite lo que él está haciendo
 - Consumes: todo lo anterior — `resolveProject()`, `componerMensajes()`, `app.modelProvider`, `createSseWriter()`, `app.insertAssistantMessage()`.
 - Produces: la ruta `POST /v1/projects/:projectId/conversations/:conversationId/messages`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/http/messages.test.ts`:
 
@@ -3854,12 +3854,12 @@ describe('POST .../messages', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/api test src/http/messages.test.ts`
 Expected: FAIL, la ruta no existe.
 
-- [ ] **Step 3: Escribir la ruta**
+- [x] **Step 3: Escribir la ruta**
 
 Crear `services/api/src/http/messages.route.ts`:
 
@@ -4085,7 +4085,7 @@ import { messagesRoute } from './http/messages.route.js';
 await app.register(messagesRoute);
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/api test src/http/messages.test.ts`
 Expected: PASS, los cuatro casos.
@@ -4094,12 +4094,12 @@ Si `app.inject()` no espera al final del stream, añadir `payloadAsStream: false
 o leer `res.body` tras `await app.inject(...)` como ya hace el test — Fastify
 recoge el cuerpo completo cuando la respuesta termina.
 
-- [ ] **Step 5: Ejecutar toda la suite del servicio**
+- [x] **Step 5: Ejecutar toda la suite del servicio**
 
 Run: `pnpm --filter @teams4soft/api test && pnpm --filter @teams4soft/api typecheck && pnpm --filter @teams4soft/api lint`
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add services/api

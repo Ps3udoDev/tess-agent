@@ -11,6 +11,7 @@ import { healthRoute } from './http/health.route.js';
 import { visitorSessionsRoute } from './http/visitor-sessions.route.js';
 import { conversationsRoute } from './http/conversations.route.js';
 import { leadsRoute } from './http/leads.route.js';
+import { messagesRoute } from './http/messages.route.js';
 import { supabasePlugin } from './plugins/supabase.js';
 import { authPlugin } from './plugins/auth.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
@@ -42,6 +43,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   await app.register(visitorSessionsRoute);
   await app.register(conversationsRoute);
   await app.register(leadsRoute);
+  await app.register(messagesRoute);
 
   return app;
 }
