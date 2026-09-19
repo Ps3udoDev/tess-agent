@@ -122,8 +122,11 @@ pregunta, recibe texto en streaming y —si quiere— deja nombre y correo.
   visitante).
 - `ModelProvider` con dos implementaciones: `fake` determinista para CI y
   `gateway` real vía Vercel AI Gateway.
+- Prompt base sembrado por SQL, con las reglas de seguridad por delante de la
+  configuración del proyecto, y respuesta en el idioma del mensaje.
 - `@teams4soft/tess-client` implementado de verdad.
-- La UI de chat dentro del web component, con `aria-live` bien puesto.
+- La UI de chat dentro del web component, con `aria-live` bien puesto, y
+  captura de leads solo a prospectos.
 
 **Congela.** El modelo de identidad de tres roles, `TessClientLike` ensanchado,
 los esquemas zod de la API, la interfaz `ModelProvider` y la secuencia exacta

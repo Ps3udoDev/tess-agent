@@ -158,14 +158,24 @@ vive fuera de `projects` para poder dar al visitante acceso de lectura a
 `projects` sin exponerle de paso la clave y la allowlist.
 
 ```text
-project_id        uuid primary key references projects
-organization_id   uuid not null references organizations
-public_key        text not null unique
-allowed_origins   text[] not null default '{}'
-visitor_access    boolean not null default false
-greeting          text
+project_id                 uuid primary key references projects
+organization_id            uuid not null references organizations
+public_key                 text not null unique
+allowed_origins            text[] not null default '{}'
+visitor_access             boolean not null default false
+collect_leads_from_members boolean not null default false
+greeting                   text
 created_at / updated_at
 ```
+
+**`public_key` no es un secreto.** Identifica al proyecto y nada más. Viaja en
+el HTML de la landing, a la vista de cualquiera. Lo que protege el endpoint son
+las otras tres capas: validación de `Origin`, rate limit y, después, RLS sobre
+el JWT. Conviene que quede escrito porque el prefijo `pk_` invita a tratarla
+como credencial y a construir encima defensas que no son.
+
+`collect_leads_from_members = false` por defecto: no se crean leads de
+empleados ni de miembros internos salvo que alguien lo pida explícitamente.
 
 `greeting` es el saludo que el widget pinta como primera burbuja al abrirse el
 diálogo, antes de que exista ninguna conversación. Es texto plano configurado
@@ -190,6 +200,7 @@ auth_user_id      uuid not null references auth.users
 email             text
 full_name         text
 source            text not null default 'widget'
+consent_at        timestamptz
 metadata          jsonb not null default '{}'
 first_seen_at     timestamptz not null default now()
 created_at / updated_at
@@ -201,8 +212,28 @@ unique (project_id, auth_user_id)
 denormalización que ya aplica `0002`, pero aquí además evita que un cliente
 declare una organización que no le corresponde.
 
+Esa regla es general y vale para todo el API: **`organization_id`, `project_id`
+y cualquier señal de permisos se derivan de la ruta, del JWT y de la fila leída
+con RLS, nunca del cuerpo de la petición.** Un campo de autorización que viene
+del cliente no es una autorización.
+
 Al menos uno de `email` o `full_name` debe venir informado —`check`—, porque un
-lead sin ninguno de los dos no es un lead.
+lead sin ninguno de los dos no es un lead. El API normaliza el correo
+—minúsculas, sin espacios— y valida formato y longitud antes de insertar.
+
+**`consent_at` es columna propia, no `metadata`.** Es el registro de que la
+persona aceptó que le contacten: tiene valor legal, se consulta para decidir si
+se le puede escribir, y probablemente haya que borrarlo o exportarlo a
+petición. Un dato que se consulta y se audita no se entierra en un `jsonb`.
+
+La atribución sí va en `metadata`, porque varía por integración y nadie filtra
+por ella: `landing_url`, `referrer`, `utm_source`, `utm_medium`,
+`utm_campaign`. El widget la recoge de la página anfitriona y la envía con el
+lead.
+
+**Upsert que no destruye.** Si el usuario reenvía solo el correo, el
+`full_name` anterior se conserva. `coalesce` por campo, nunca un `update` que
+escriba nulos encima de lo que ya había.
 
 ### `0009_visitor_rls.sql`
 
@@ -391,11 +422,27 @@ Inserta con el cliente del usuario. Si ya existe el lead para ese
 `(project_id, auth_user_id)`, hace `upsert` de los campos informados y devuelve
 200 en lugar de 201. Volver a enviar el formulario no debe ser un error.
 
-#### `GET /v1/projects/{projectId}/leads/me`
+#### `GET /v1/projects/{projectId}/me`
 
-Devuelve `{ email, fullName }` del lead de quien llama, o `204` si no tiene.
-Nunca devuelve leads ajenos: se apoya en `leads_select_own`, así que la
-restricción es de RLS y no del handler.
+Todo lo que el widget necesita saber de quien está usándolo, en una sola
+petición al abrir el diálogo:
+
+```jsonc
+{
+  "userId": "uuid",
+  "isAnonymous": true,
+  "isProjectMember": false,
+  "lead": null, // o { "email": "...", "fullName": "..." }
+  "collectLeadsFromMembers": false,
+}
+```
+
+`lead` se lee con el cliente del usuario y se apoya en `leads_select_own`: la
+restricción de no ver leads ajenos es de RLS, no del handler.
+
+`isProjectMember` es la pieza que faltaba. Sin ella el widget no puede
+distinguir a un prospecto de un empleado, y acabaría pidiendo el correo a gente
+que ya trabaja en la organización.
 
 ### El contrato SSE, congelado
 
@@ -411,11 +458,23 @@ event: assistant.completed  data: {"messageId":"uuid"}
 El cliente traduce el desenlace usando la maquinaria de transitorios que F1 ya
 construyó:
 
-| El cliente recibe     | Pide a `tess-core`                         |
-| --------------------- | ------------------------------------------ |
-| `assistant.state`     | ese estado tal cual                        |
-| `assistant.completed` | `success` → vuelve solo a `idle` a 1920 ms |
-| `assistant.error`     | `error` → vuelve solo a `idle` a 2520 ms   |
+| El cliente recibe     | Pide a `tess-core`               |
+| --------------------- | -------------------------------- |
+| `assistant.state`     | ese estado tal cual              |
+| `assistant.completed` | `success` → vuelve solo a `idle` |
+| `assistant.error`     | `error` → vuelve solo a `idle`   |
+
+**Los tiempos no se escriben aquí.** `tess-core` ya exporta
+`DEFAULT_TRANSIENT_MS`, y ni `tess-client` ni el web component deben contener
+esos números literales. Quien necesite el valor lo importa; quien necesite
+cambiarlo lo cambia en un sitio.
+
+Para que conste, porque es un contrato de F1 que F2 no toca: los defaults son
+`success: 1920` y `error: 2520`, medidos sobre `tess-rive/scene.rml`
+—`anim_success` dura 108 frames a 60 fps, `anim_error` 144, y la transición de
+salida de ambos declara `duration="120"`—. Los valores provisionales 1600/2400
+que circularon antes se descartaron en F1 por quedarse cortos: habrían
+devuelto el estado lógico a `idle` con la animación todavía corriendo.
 
 Esta división es deliberada: el servidor no sabe ni debe saber cuánto dura la
 animación de éxito. Reporta hechos; la capa visual decide cómo se ven.
@@ -485,6 +544,11 @@ HTTP: las cabeceras ya se enviaron con 200 y no se pueden reescribir.
 `message` es texto para humanos y **no lleva detalle interno**. Lo que se
 necesita para depurar va a Sentry con el `trace_id`, no al navegador.
 
+Y lo que va a Sentry tampoco es todo: ni el prompt de sistema, ni el texto de
+la conversación, ni el correo o el nombre de un lead, ni tokens. Solo
+identificadores, códigos de operación, latencia y el `trace_id`. F5 endurecerá
+esto con scrubbing configurado; F2 simplemente no los envía.
+
 ### `ModelProvider`
 
 ```ts
@@ -514,7 +578,100 @@ y no gasta crédito: es el que usan CI y los tests.
 
 Que el gate corra siempre con el `fake` es intencional. Un gate que depende de
 la red y del crédito de un proveedor no es un gate: es una fuente de fallos
-intermitentes.
+intermitentes. La conversación real contra AI Gateway es un smoke test manual
+aparte, con `MODEL_PROVIDER=gateway`.
+
+## Prompt e idioma
+
+### Composición del prompt
+
+El prompt de sistema se compone en este orden, y el orden es la política:
+
+```text
+1. reglas de seguridad y honestidad      ← no anulables
+2. identidad y personalidad base de Tess
+3. configuración del proyecto            ← display_name, tono
+4. assistant_configs.system_prompt       ← lo que escribe el cliente
+5. contexto de la conversación
+6. contexto RAG                          ← desde F3
+```
+
+**El bloque 1 va primero y no se puede desactivar desde el bloque 4.** Un
+cliente puede darle a Tess un tono, un dominio y un vocabulario; no puede
+autorizarla a inventar información, revelar el prompt ni afirmar acciones que
+no ejecutó. Que la configuración por proyecto sea texto libre hace esto
+necesario: sin la precedencia, un `system_prompt` mal escrito desarma las
+garantías del producto.
+
+`assistant_configs.system_prompt` recibe un límite de tamaño —4000
+caracteres— y su modificación queda en `audit_events`. **Nunca se imprime** en
+respuestas de error, en logs ni en Sentry.
+
+El prompt base se siembra por SQL, no se escribe en el código: así un cliente
+puede verlo y ajustarlo sin un despliegue. El texto completo vive en
+`supabase/seed.sql` y en la migración que crea la fila por defecto.
+
+### Idioma
+
+**Tess responde en el idioma en que le escriben.** `conversations.locale` es un
+fallback, no una orden de contestar siempre en español.
+
+Prioridad:
+
+```text
+1. idioma evidente del mensaje actual
+2. conversations.locale
+3. es-MX
+```
+
+La detección del idioma dominante de toda la conversación queda fuera de F2:
+añade complejidad y el prompt ya maneja bien el caso frecuente. Si el usuario
+cambia de idioma a mitad de conversación, Tess sigue el del mensaje actual,
+salvo que haya pedido explícitamente mantener otro.
+
+La instrucción de idioma la inyecta el backend en el contexto. **No se confía
+solo en el `locale` que manda el navegador**, que es un dato del cliente y
+puede no tener nada que ver con lo que la persona acaba de escribir.
+
+`locale` sigue controlando las cadenas de UI y los `aria-label` del widget, que
+es para lo único que lo usaba F1.
+
+Tests obligatorios, con el provider fake configurado para reflejar la
+instrucción de idioma recibida:
+
+```text
+mensaje en español  + locale es-MX → responde en español
+mensaje en inglés   + locale es-MX → responde en inglés
+mensaje en portugués + locale es-MX → responde en portugués
+mensaje ambiguo («ok») + locale es-MX → usa el locale
+```
+
+## Rate limiting
+
+```ts
+export interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetAt: number;
+}
+
+export interface RateLimiter {
+  consume(
+    key: string,
+    limit: number,
+    windowSeconds: number,
+  ): Promise<RateLimitResult>;
+}
+```
+
+F2 implementa el adaptador **en memoria**, que es suficiente en local y en
+tests. Pero un contador en memoria en Cloud Run cuenta por instancia, así que
+con tres instancias el límite real es el triple del configurado. Por eso se
+define como interfaz desde ahora: sustituirla por Redis o Memorystore antes de
+producción es cambiar una implementación, no reescribir las rutas.
+
+Mientras tanto, el límite de `anonymous_users = 30` por IP y hora que Supabase
+aplica en `config.toml` sigue siendo la segunda barrera, y esa sí es global.
 
 ## `tess-types`
 
@@ -562,13 +719,22 @@ export interface ChatMessage {
 export interface LeadInput {
   email?: string;
   fullName?: string;
+  attribution?: Record<string, string>; // landing_url, referrer, utm_*
+}
+
+export interface TessViewer {
+  userId: string;
+  isAnonymous: boolean;
+  isProjectMember: boolean;
+  lead: LeadInput | null;
+  collectLeadsFromMembers: boolean;
 }
 
 export interface TessClientLike {
   sendMessage(input: SendMessageInput): AsyncIterable<AssistantStreamEvent>;
   createConversation?(): Promise<{ conversationId: string }>;
   listMessages?(conversationId: string): Promise<ChatMessage[]>;
-  getLead?(): Promise<LeadInput | null>;
+  getViewer?(): Promise<TessViewer>;
   submitLead?(input: LeadInput): Promise<{ leadId: string }>;
 }
 ```
@@ -577,9 +743,10 @@ export interface TessClientLike {
 la base: son turnos internos que el navegador no debe ver. El filtrado ocurre
 en el API, no en el cliente.
 
-`getLead()` es lo que consume `leads_select_own`: al recargar, el widget
-pregunta si este visitante ya dejó sus datos antes de decidir si muestra el
-formulario.
+`getViewer()` es una sola llamada a `GET /me` al abrir el diálogo. Se prefiere
+a un `getLead()` suelto porque el widget necesita tres datos a la vez —si es
+miembro, si ya hay lead, y si el proyecto quiere leads de miembros— y pedirlos
+por separado invita a decidir con información incompleta.
 
 `SendMessageInput` no cambia: `conversationId` sigue siendo obligatorio y el
 componente crea la conversación antes del primer envío.
@@ -611,12 +778,32 @@ transporte, y es lo que más test unitario recibe: trama partida a mitad de una
 línea, `data:` multilínea, comentarios `:` de heartbeat y el delimitador de
 línea en blanco.
 
+**Eventos desconocidos no rompen el parser.** Si llega un `event:` que el
+cliente no reconoce, se ignora y el stream continúa. Esto no es defensa
+genérica: es lo que permite a F3 empezar a emitir `assistant.source` —y a F4
+sus eventos de herramientas— contra widgets ya desplegados en landings de
+clientes, que nadie va a actualizar el mismo día. Un test lo cubre
+explícitamente inyectando un evento inventado a mitad del stream.
+
 **Persistencia de la sesión.** `localStorage`, con clave
 `tess:session:<projectId>`. Se elige sobre `sessionStorage` a conciencia: un
 visitante que vuelve mañana conserva su `auth.uid()`, su historial y su lead,
-que es justo el comportamiento que quiere un asistente de captación. El coste
-es que el refresh token vive en `localStorage` —lo mismo que hace `supabase-js`
-por defecto— y ese riesgo se documenta en el README del paquete.
+que es justo el comportamiento que quiere un asistente de captación.
+
+El coste es que el refresh token vive en `localStorage`, igual que hace
+`supabase-js` por defecto, y eso es vulnerable a XSS. El README del paquete
+debe decirlo sin rodeos y enumerar lo que se espera de quien lo integra:
+
+- No cargar el widget en páginas que ejecutan scripts de terceros no
+  confiables.
+- Definir una Content Security Policy en la landing.
+- No guardar ningún otro secreto bajo el prefijo `tess:`.
+- Sesión efímera en memoria si `localStorage` está bloqueado.
+
+El cliente expone `clearSession()` para cerrar sesión y descartar los tokens.
+Una integración de mayor riesgo —un panel con datos sensibles— debería pasar su
+propio `getToken` y gestionar la sesión con cookies seguras del host; el
+`localStorage` es la elección correcta para una landing pública, no para todo.
 
 Los accesos a `localStorage` van envueltos en `try/catch`: en navegación
 privada o con almacenamiento bloqueado lanzan, y el widget debe seguir
@@ -668,19 +855,38 @@ ruido.
 
 ### Formulario de lead
 
-Se muestra **una vez**, en línea, tras completarse la primera respuesta del
-asistente, si `getLead()` devuelve vacío. Nombre y correo, ambos opcionales por
-separado pero al menos uno obligatorio. Descartable, y el descarte se recuerda
-en `localStorage` junto a la sesión, así que no reaparece al recargar.
+El formulario es para **prospectos**, no para cualquiera que tenga un JWT. La
+condición, evaluada tras completarse la primera respuesta del asistente:
 
-La comprobación va contra el servidor y no solo contra `localStorage` por el
-camino del host autenticado: ahí la identidad viaja en el JWT del usuario, no
-en el almacenamiento del navegador, así que alguien que ya dejó sus datos desde
-otro dispositivo no debe volver a ver el formulario. `localStorage` solo
-recuerda el descarte, que sí es una preferencia local.
+```ts
+const esProspecto = !viewer.isProjectMember || viewer.collectLeadsFromMembers;
+const mostrar = esProspecto && viewer.lead === null && !descartadoLocalmente;
+```
 
-En F2 lo dispara el widget, **no el modelo**. Que Tess decida conversacionalmente
-cuándo pedir los datos es tool-calling, y eso es F4.
+Esto cubre los cuatro casos de forma correcta:
+
+| Quién                                  | Ve el formulario                |
+| -------------------------------------- | ------------------------------- |
+| Visitante anónimo de una landing       | sí                              |
+| Usuario registrado que no es miembro   | sí — sigue siendo un prospecto  |
+| Miembro del proyecto o la organización | no, salvo configuración expresa |
+| Administrador interno                  | no, salvo configuración expresa |
+
+Nombre y correo, ambos opcionales por separado pero al menos uno obligatorio.
+Junto a los campos, una línea breve de privacidad con enlace a la política; al
+enviar se sella `consent_at`. Descartable, y el descarte se recuerda en
+`localStorage`.
+
+La existencia del lead se comprueba **contra el servidor**, no contra
+`localStorage`, por el camino del host autenticado: ahí la identidad viaja en
+el JWT, así que alguien que ya dejó sus datos desde otro dispositivo no debe
+volver a ver el formulario. `localStorage` solo recuerda el descarte, que sí es
+una preferencia local.
+
+En F2 lo dispara el widget, **no el modelo**. Que Tess decida
+conversacionalmente cuándo pedir los datos es tool-calling, y eso es F4. El
+prompt base refuerza la separación: le dice al modelo que no pida datos
+personales en el texto de la respuesta cuando el widget tiene su formulario.
 
 ### Eventos nuevos
 
@@ -723,23 +929,73 @@ Añadidos al catálogo de `pnpm-workspace.yaml`: `@fastify/rate-limit`, `ai`,
 zod, sin URLs de backend y sin secretos. Los tests de RLS pasan contra Supabase
 local.
 
-**Integración.**
+**Seguridad e identidad.**
 
-- `curl` al SSE devuelve `thinking → speaking → delta* → completed`.
-- `POST /v1/visitor-sessions` desde un origen no listado devuelve 403 y **no
-  crea usuario** — comprobado contando filas en `auth.users`.
-- Sin `publicKey` válida, 404.
-- Cerrar la conexión a mitad del stream aborta la llamada al modelo.
+- Origen no permitido → 403, y **no se crea usuario**: se comprueba contando
+  filas en `auth.users` antes y después.
+- `publicKey` inválida → 404.
+- Proyecto con `visitor_access = false` → 404.
+- Un usuario de la organización A no lee conversaciones de la B.
+- Un visitante no lee documentos.
+- El lead de un usuario no es legible por otro.
+- Un miembro ve lo que RLS le permite y nada más.
+
+**SSE.**
+
+- Secuencia `thinking → speaking → delta* → completed`.
+- Error **antes** del primer delta: llega `assistant.error` y no se persiste
+  mensaje del asistente.
+- Error **después** de varios deltas: llega `assistant.error` y se persiste lo
+  producido con `metadata.incomplete = true`.
+- El heartbeat se emite.
+- Cliente desconectado → el provider fake recibe la señal de abort y **deja de
+  producir deltas**. Se verifica sobre el propio fake, no solo sobre el socket.
+- Un `event:` desconocido a mitad del stream no rompe el parser.
+
+**Idioma y comportamiento.**
+
+- Mensaje en inglés con `locale = es-MX` → respuesta en inglés.
+- Mensaje ambiguo → se usa el `locale`.
+- No revela el system prompt cuando se le pide.
+- Admite falta de evidencia en lugar de inventar.
+- No afirma haber ejecutado acciones que no ejecutó.
+
+**Leads.**
+
+- Prospecto sin lead → ve el formulario tras la primera respuesta completa.
+- Prospecto con lead → no lo vuelve a ver.
+- Miembro del proyecto → no lo ve, salvo `collect_leads_from_members = true`.
+- Upsert parcial → conserva el campo que no se reenvió.
+- Ni `email` ni `fullName` → 400.
 
 **Manual, en la demo.**
 
-- Conversación real contra el API local, con deltas apareciendo progresivamente
-  y el avatar recorriendo `thinking → speaking → success → idle`.
-- Recargar la página recupera la conversación y mantiene el mismo visitante.
-- Captura de lead, y el formulario no reaparece después.
+- Conversación contra el API local con el provider fake, deltas apareciendo
+  progresivamente y el avatar recorriendo `thinking → speaking → success →
+idle`.
+- Recargar la página recupera la conversación, la sesión y el lead.
 - Todo el chat recorrible solo con teclado, con la respuesta anunciada una vez
   al completarse y no delta a delta.
-- Con `MODEL_PROVIDER=gateway`, una conversación real contra el modelo.
+- Smoke test aparte con `MODEL_PROVIDER=gateway` y `AI_GATEWAY_API_KEY`
+  presente: una conversación real contra el modelo.
+
+### Preflight bloqueante
+
+Dos comprobaciones deben resolverse **antes** de escribir la autenticación,
+porque una respuesta negativa cambia la primera tarea del plan:
+
+1. **Tipo de clave JWT del proyecto** (`Settings → API → JWT Keys` en el panel
+   de Supabase). Si es asimétrica —ES256, RS256— se implementa `getClaims()`
+   como dice el spec. Si sigue en el secreto HS256 heredado, la primera tarea
+   es migrar a claves asimétricas y revalidar tokens nuevos, refresh, usuarios
+   anónimos, miembros, expiración y revocación. **No se cae a `getUser()` en
+   silencio**; solo sería aceptable como medida temporal, documentada y
+   decidida a conciencia.
+2. **Variables presentes** en el `.env` local: `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `MODEL_PROVIDER`,
+   `MODEL_NAME` y, para el smoke test, `AI_GATEWAY_API_KEY`. Ninguna de ellas
+   puede aparecer en el bundle del web component, en variables `PUBLIC_` de
+   Vercel, en logs ni en Sentry.
 
 ## Fuera de alcance
 
