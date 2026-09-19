@@ -9,7 +9,8 @@
     "./base": "./base.js",
     "./library": "./library.js",
     "./node": "./node.js",
-    "./svelte": "./svelte.js"
+    "./svelte": "./svelte.js",
+    "./svelte-support": "./svelte-support.js"
   },
   "files": [
     "*.js"

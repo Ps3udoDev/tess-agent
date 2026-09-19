@@ -41,11 +41,9 @@
     "@teams4soft/config-eslint": "workspace:*",
     "@teams4soft/config-tsconfig": "workspace:*",
     "eslint": "catalog:",
-    "eslint-plugin-svelte": "catalog:",
     "svelte": "catalog:",
     "svelte-check": "catalog:",
     "typescript": "catalog:",
-    "typescript-eslint": "catalog:",
     "vitest": "catalog:"
   },
   "publishConfig": {

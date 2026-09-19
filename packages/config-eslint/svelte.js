@@ -1,7 +1,6 @@
 import globals from 'globals';
-import svelte from 'eslint-plugin-svelte';
-import tseslint from 'typescript-eslint';
 import base from './base.js';
+import svelteSupport from './svelte-support.js';
 
 /**
  * Aplicaciones SvelteKit (apps/demo-svelte, apps/admin, apps/docs).
@@ -10,20 +9,10 @@ import base from './base.js';
  */
 export default [
   ...base,
-  ...svelte.configs.recommended,
-  ...svelte.configs.prettier,
+  ...svelteSupport,
   {
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
-    },
-  },
-  {
-    files: ['**/*.svelte', '**/*.svelte.ts'],
-    languageOptions: {
-      parserOptions: {
-        parser: tseslint.parser,
-        extraFileExtensions: ['.svelte'],
-      },
     },
   },
 ];
