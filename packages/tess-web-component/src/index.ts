@@ -15,4 +15,8 @@
  */
 import './element.js';
 
-export { TAG_NAME, TessAssistantElement } from './element.js';
+// `TAG_NAME` vive en `tess-types` (sin dependencias de DOM); se reexporta
+// aquí para que la API pública de este paquete no cambie para quien ya
+// importa `TAG_NAME` desde `@teams4soft/tess-web-component`.
+export { TAG_NAME } from '@teams4soft/tess-types';
+export { TessAssistantElement } from './element.js';

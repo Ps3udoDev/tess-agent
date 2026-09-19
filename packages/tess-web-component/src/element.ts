@@ -6,6 +6,7 @@ import {
   DEFAULT_SIZE,
   POSITIONS,
   SIZES,
+  TAG_NAME,
   THEMES,
   isRequestedState,
   type AssistantState,
@@ -20,8 +21,6 @@ import {
 } from '@teams4soft/tess-types';
 import { labelsFor } from './labels.js';
 import { STYLES } from './styles.js';
-
-export const TAG_NAME = 'teams4soft-assistant';
 
 const OBSERVED = ['state', 'theme', 'size', 'position', 'api-url', 'locale'] as const;
 

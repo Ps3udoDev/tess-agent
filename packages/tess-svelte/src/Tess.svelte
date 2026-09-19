@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { TessPosition, TessSize, TessTheme } from '@teams4soft/tess-types';
+  import type { RequestedState, TessPosition, TessSize, TessTheme } from '@teams4soft/tess-types';
 
   interface Props {
-    state?: string;
+    state?: RequestedState;
     theme?: TessTheme;
     size?: TessSize;
     position?: TessPosition;
@@ -27,5 +27,5 @@
   });
 </script>
 
-<teams4soft-assistant {state} {theme} {position} size={String(size)} api-url={apiUrl} {locale}
+<teams4soft-assistant {state} {theme} {size} {position} api-url={apiUrl} {locale}
 ></teams4soft-assistant>

@@ -1,5 +1,15 @@
 import type { AssistantState } from './assistant.js';
 
+/**
+ * Nombre del custom element que registra `@teams4soft/tess-web-component`.
+ *
+ * Vive aquí (y no en `tess-web-component`) porque es una cadena sin
+ * dependencias de DOM: cualquier paquete que solo necesite el nombre de la
+ * etiqueta (p. ej. `tess-svelte`, `tess-react`) puede importarla sin arrastrar
+ * `class ... extends HTMLElement`, que revienta fuera del navegador (SSR).
+ */
+export const TAG_NAME = 'teams4soft-assistant';
+
 export const THEMES = ['auto', 'light', 'dark'] as const;
 export type TessTheme = (typeof THEMES)[number];
 
