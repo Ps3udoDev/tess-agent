@@ -187,6 +187,31 @@ organización —lo necesitan para copiar la clave al integrar el widget—. El 
 la lee con `service_role` en el momento de acuñar, que es antes de que exista
 un JWT.
 
+**La política de admin autoriza contra el proyecto, no contra la columna.** La
+primera versión de este spec escribía
+`using (public.is_org_admin(organization_id))`, leyendo la columna que manda el
+cliente. Eso permitía a un administrador de la organización X insertar una fila
+con `project_id` de un proyecto ajeno V y `organization_id` propio: el `with
+check` pasaba porque sí era admin de X, y la clave foránea contra `projects` no
+pasa por RLS. Con eso encendía `visitor_access` sobre un proyecto de otro
+tenant y le acuñaba una clave de widget.
+
+La condición correcta deriva la organización del proyecto real:
+
+```sql
+using (
+  exists (
+    select 1 from public.projects p
+    where p.id = project_widget_settings.project_id
+      and public.is_org_admin(p.organization_id)
+  )
+)
+```
+
+Es la misma regla que este documento aplica a `leads` —«un campo de
+autorización que viene del cliente no es una autorización»— y que la primera
+versión incumplía una tabla más allá.
+
 `visitor_access = false` por defecto: un proyecto no acepta anónimos hasta que
 alguien lo activa a conciencia.
 
@@ -258,6 +283,7 @@ permisivo y nunca rompe lo que un miembro ya podía hacer.
 | `messages`      | `messages_select_visitor`      | la conversación acepta visitantes y es suya                 |
 | `messages`      | `messages_insert_visitor`      | ídem, y `role = 'user'`                                     |
 | `leads`         | `leads_insert_own`             | `auth_user_id = auth.uid()` y el proyecto acepta visitantes |
+| `leads`         | `leads_update_own`             | ídem — la misma guarda que el insert, no solo el dueño      |
 | `leads`         | `leads_select_own`             | `auth_user_id = auth.uid()`                                 |
 | `leads`         | `leads_select_member`          | `is_project_member(project_id)`                             |
 
@@ -276,6 +302,44 @@ pedírselos.
 política de `with check` ya garantiza que solo puede crear su propio lead, así
 que no hay razón para bypasear RLS. El `unique (project_id, auth_user_id)` evita
 duplicados.
+
+### `0010_tenant_integrity.sql`
+
+Las columnas `organization_id` y `project_id` están denormalizadas para que RLS
+pueda filtrar sin joins. Eso solo es seguro **si son ciertas**, y RLS por sí
+sola no lo garantiza: `conversations_insert_visitor` comprueba quién eres y en
+qué proyecto escribes, pero no que la etiqueta de tenant que traes coincida con
+ese proyecto.
+
+La consecuencia era explotable. Un visitante anónimo podía insertar un mensaje
+en **su propia** conversación etiquetándolo con el `project_id` de otro tenant;
+`messages_select` de `0006` filtra por `project_id`, así que los miembros de la
+víctima habrían visto ese contenido en su lista de mensajes. No es una fuga de
+lectura, es una inyección.
+
+No se arregla con más políticas sino **derivando** las columnas de la fila
+padre, igual que `0008` ya hace con `leads`:
+
+| Trigger                                    | Deriva                                                 |
+| ------------------------------------------ | ------------------------------------------------------ |
+| `project_widget_settings_set_organization` | `organization_id` desde `projects`                     |
+| `conversations_set_organization`           | `organization_id` desde `projects`                     |
+| `messages_set_tenant`                      | `project_id` y `organization_id` desde la conversación |
+| `leads_forbid_project_change`              | rechaza cualquier cambio de `project_id`               |
+
+Las tres funciones de derivación son **`security invoker`, y eso es la mitad
+del diseño**: si el llamante no puede ver el proyecto o la conversación, la
+derivación no encuentra la fila y el `insert` se rechaza. Falla cerrado. Con
+`security definer` se saltarían RLS y esa propiedad desaparecería.
+
+Sobrescriben siempre, no solo cuando el cliente manda nulos: si fueran
+condicionales, bastaría con enviar un valor para evadir la derivación.
+
+`leads_forbid_project_change` cierra la otra vía: `leads_insert_own` exigía
+`project_accepts_visitors`, pero el `update` no restringía `project_id`, así
+que un visitante podía crear su lead en un proyecto abierto y luego reubicarlo
+en el de otro tenant. La política gana también esa guarda; el trigger es la
+defensa en profundidad.
 
 ### `supabase/config.toml`
 
