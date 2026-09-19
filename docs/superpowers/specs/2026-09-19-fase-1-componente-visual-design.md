@@ -44,14 +44,14 @@ Lo que impide que una fase interfiera con la siguiente no es el orden, son las
 fronteras. Cada fase congela un contrato que las posteriores consumen sin
 renegociar.
 
-| Contrato                                     | Se congela en | Lo consume                    | Fase 1                            |
-| -------------------------------------------- | ------------- | ----------------------------- | --------------------------------- |
-| `AssistantState` (7 estados)                 | F1            | F2 vía SSE, F4                | lo implementa                     |
-| `<teams4soft-assistant>` atributos y eventos | F1            | todas                         | lo implementa                     |
-| `AssistantStreamEvent` (5 eventos)           | ya tipado     | F2 lo produce, F3 emite `assistant.source` | no lo toca |
-| `tess-client` (HTTP/SSE)                     | F2            | F3, F4                        | stub; solo el atributo `api-url`  |
-| Esquema Supabase (12 tablas)                 | ya migrado    | F2, F3, F4                    | no lo toca                        |
-| Allowlist de herramientas MCP                | F4            | F5                            | fuera de alcance                  |
+| Contrato                                     | Se congela en | Lo consume                                 | Fase 1                           |
+| -------------------------------------------- | ------------- | ------------------------------------------ | -------------------------------- |
+| `AssistantState` (7 estados)                 | F1            | F2 vía SSE, F4                             | lo implementa                    |
+| `<teams4soft-assistant>` atributos y eventos | F1            | todas                                      | lo implementa                    |
+| `AssistantStreamEvent` (5 eventos)           | ya tipado     | F2 lo produce, F3 emite `assistant.source` | no lo toca                       |
+| `tess-client` (HTTP/SSE)                     | F2            | F3, F4                                     | stub; solo el atributo `api-url` |
+| Esquema Supabase (12 tablas)                 | ya migrado    | F2, F3, F4                                 | no lo toca                       |
+| Allowlist de herramientas MCP                | F4            | F5                                         | fuera de alcance                 |
 
 #### `AssistantStreamEvent` no se renegocia en ninguna fase
 
@@ -71,7 +71,7 @@ intermedia.
 
 #### Punto de inyección del cliente, congelado en F1
 
-Decir "en F2 se lo pasa a `tess-client`" dejaba abierto *cómo*, y eso obligaría
+Decir "en F2 se lo pasa a `tess-client`" dejaba abierto _cómo_, y eso obligaría
 a reestructurar el web component en F2. Se congela ahora la costura:
 
 ```ts
@@ -196,10 +196,10 @@ createTessCore({ transientMs: { success: 1920, error: 2520 } });
 
 Los defaults **no son estimaciones**: salen de medir `tess-rive/scene.rml`.
 
-| Animación      | Frames @60fps | Duración | Blend de salida | Total    |
-| -------------- | ------------- | -------- | --------------- | -------- |
-| `anim_success` | 108           | 1800 ms  | 120 ms          | 1920 ms  |
-| `anim_error`   | 144           | 2400 ms  | 120 ms          | 2520 ms  |
+| Animación      | Frames @60fps | Duración | Blend de salida | Total   |
+| -------------- | ------------- | -------- | --------------- | ------- |
+| `anim_success` | 108           | 1800 ms  | 120 ms          | 1920 ms |
+| `anim_error`   | 144           | 2400 ms  | 120 ms          | 2520 ms |
 
 Los valores provisionales anteriores —1600 y 2400 ms— eran **ambos
 demasiado cortos**: el estado lógico habría vuelto a `idle` con la animación
@@ -275,12 +275,12 @@ export interface TessRiveHandle {
 
 Traducción de estado a inputs:
 
-| `AssistantState`                     | Efecto en el `.riv`                                 |
-| ------------------------------------ | --------------------------------------------------- |
-| `listening` / `thinking` / `speaking` | su booleano a `true`, los otros dos a `false`        |
-| `success` / `error`                  | dispara el trigger **al entrar** en el estado        |
-| `idle` / `offline`                   | los tres booleanos a `false`                         |
-| señal `reducedMotion`                | `prefers_reduced_motion`                             |
+| `AssistantState`                      | Efecto en el `.riv`                           |
+| ------------------------------------- | --------------------------------------------- |
+| `listening` / `thinking` / `speaking` | su booleano a `true`, los otros dos a `false` |
+| `success` / `error`                   | dispara el trigger **al entrar** en el estado |
+| `idle` / `offline`                    | los tres booleanos a `false`                  |
+| señal `reducedMotion`                 | `prefers_reduced_motion`                      |
 
 El matiz de "al entrar" es necesario: el suscriptor compara con el snapshot
 anterior y dispara solo en la transición. Sin eso, cualquier cambio de
@@ -378,11 +378,11 @@ validación y el entregable de la fase.
 
 ## Testing
 
-| Paquete               | Entorno                          | Qué se prueba                                                                                       |
-| --------------------- | -------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `tess-core`           | node                             | transitorios con fake timers, override offline y restauración, reduced-motion, unsubscribe, destroy  |
-| `tess-rive`           | jsdom + mock de `@rive-app/canvas` | booleanos correctos por estado, trigger solo en transición, destroy limpia observers y suscripción   |
-| `tess-web-component`  | jsdom                            | registro del elemento, reflexión de atributos, eventos, atributos ARIA, destroy                      |
+| Paquete              | Entorno                            | Qué se prueba                                                                                       |
+| -------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `tess-core`          | node                               | transitorios con fake timers, override offline y restauración, reduced-motion, unsubscribe, destroy |
+| `tess-rive`          | jsdom + mock de `@rive-app/canvas` | booleanos correctos por estado, trigger solo en transición, destroy limpia observers y suscripción  |
+| `tess-web-component` | jsdom                              | registro del elemento, reflexión de atributos, eventos, atributos ARIA, destroy                     |
 
 Límite conocido: que el avatar _se vea bien_ no lo cubre ningún test unitario.
 El renderizado real se valida en la demo, a ojo. Los tests cubren lógica y

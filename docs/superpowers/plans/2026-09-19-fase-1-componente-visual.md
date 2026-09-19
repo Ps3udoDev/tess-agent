@@ -31,6 +31,7 @@
 Define los tipos que todas las tareas posteriores consumen. Sin esto, nada compila.
 
 **Files:**
+
 - Create: `packages/tess-types/src/component.ts`
 - Create: `packages/tess-types/src/client.ts`
 - Create: `packages/tess-types/src/assistant.test.ts`
@@ -38,6 +39,7 @@ Define los tipos que todas las tareas posteriores consumen. Sin esto, nada compi
 - Modify: `packages/tess-types/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: nada.
 - Produces: `RequestedState`, `isRequestedState()`, `TessAssistantConfig`, `TessStateDetail`, `TessErrorDetail`, `SendMessageInput`, `TessClientLike`, `THEMES`, `SIZES`, `POSITIONS`, `DEFAULT_SIZE`, `DEFAULT_POSITION`.
 
@@ -189,11 +191,13 @@ git commit -m "feat(types): añadir RequestedState, tipos del componente y TessC
 El núcleo sin transitorios ni conectividad todavía: crear, leer, cambiar, suscribir, destruir.
 
 **Files:**
+
 - Create: `packages/tess-core/src/core.ts`
 - Create: `packages/tess-core/src/core.test.ts`
 - Modify: `packages/tess-core/src/index.ts`
 
 **Interfaces:**
+
 - Consumes: `RequestedState`, `isRequestedState`, `AssistantState` de Task 1.
 - Produces: `createTessCore(options?)`, `TessCore`, `TessSnapshot`, `TessCoreOptions`, `MediaQueryListLike`, `ConnectivityLike`, `DEFAULT_TRANSIENT_MS`.
 
@@ -296,8 +300,14 @@ export interface TessSnapshot {
 
 export interface MediaQueryListLike {
   matches: boolean;
-  addEventListener(type: 'change', fn: (event: { matches: boolean }) => void): void;
-  removeEventListener(type: 'change', fn: (event: { matches: boolean }) => void): void;
+  addEventListener(
+    type: 'change',
+    fn: (event: { matches: boolean }) => void,
+  ): void;
+  removeEventListener(
+    type: 'change',
+    fn: (event: { matches: boolean }) => void,
+  ): void;
 }
 
 export interface ConnectivityLike {
@@ -411,10 +421,12 @@ git commit -m "feat(core): store observable con snapshot, suscripción y destroy
 `success` y `error` vuelven solos a `idle`. Es la pieza con más aristas: los temporizadores viejos no pueden pisar interacciones nuevas.
 
 **Files:**
+
 - Modify: `packages/tess-core/src/core.ts`
 - Create: `packages/tess-core/src/transient.test.ts`
 
 **Interfaces:**
+
 - Consumes: `createTessCore`, `DEFAULT_TRANSIENT_MS` de Task 2.
 - Produces: comportamiento transitorio; sin API nueva.
 
@@ -505,39 +517,39 @@ function isTransient(state: RequestedState): state is TransientState {
 Dentro de `createTessCore`, añadir junto a las demás variables:
 
 ```ts
-  const transientMs = { ...DEFAULT_TRANSIENT_MS, ...options.transientMs };
-  let timer: ReturnType<typeof setTimeout> | undefined;
+const transientMs = { ...DEFAULT_TRANSIENT_MS, ...options.transientMs };
+let timer: ReturnType<typeof setTimeout> | undefined;
 
-  function clearTransient(): void {
-    if (timer !== undefined) {
-      clearTimeout(timer);
-      timer = undefined;
-    }
+function clearTransient(): void {
+  if (timer !== undefined) {
+    clearTimeout(timer);
+    timer = undefined;
   }
+}
 ```
 
 Reemplazar el cuerpo de `setState` por:
 
 ```ts
-  function setState(next: RequestedState): void {
-    if (destroyed) return;
-    if (!isRequestedState(next)) {
-      onError(new Error(`Estado no solicitable: ${String(next)}`));
-      return;
-    }
-    // Cualquier cambio invalida el retorno pendiente: un temporizador viejo
-    // nunca puede pisar una interacción nueva.
-    clearTransient();
-    const previous = getSnapshot();
-    requested = next;
-    if (isTransient(next)) {
-      timer = setTimeout(() => {
-        timer = undefined;
-        setState('idle');
-      }, transientMs[next]);
-    }
-    emit(previous);
+function setState(next: RequestedState): void {
+  if (destroyed) return;
+  if (!isRequestedState(next)) {
+    onError(new Error(`Estado no solicitable: ${String(next)}`));
+    return;
   }
+  // Cualquier cambio invalida el retorno pendiente: un temporizador viejo
+  // nunca puede pisar una interacción nueva.
+  clearTransient();
+  const previous = getSnapshot();
+  requested = next;
+  if (isTransient(next)) {
+    timer = setTimeout(() => {
+      timer = undefined;
+      setState('idle');
+    }, transientMs[next]);
+  }
+  emit(previous);
+}
 ```
 
 Añadir `clearTransient()` dentro de `destroy()`, antes de `listeners.clear()`.
@@ -561,11 +573,13 @@ git commit -m "feat(core): estados transitorios con cancelación al cambiar de e
 Las dos señales del entorno. `offline` es un override derivado; `reducedMotion` una señal paralela.
 
 **Files:**
+
 - Modify: `packages/tess-core/src/core.ts`
 - Create: `packages/tess-core/src/environment.ts`
 - Create: `packages/tess-core/src/environment.test.ts`
 
 **Interfaces:**
+
 - Consumes: todo lo de Tasks 2 y 3.
 - Produces: `browserConnectivity()`, `browserMedia()`; `TessCoreOptions.media` y `.connectivity` operativas.
 
@@ -742,35 +756,35 @@ export const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 Dentro de `createTessCore`, reemplazar las constantes `reducedMotion` y `online` por:
 
 ```ts
-  const connectivity = options.connectivity ?? browserConnectivity();
-  const media = (options.media ?? browserMedia)(REDUCED_MOTION_QUERY);
+const connectivity = options.connectivity ?? browserConnectivity();
+const media = (options.media ?? browserMedia)(REDUCED_MOTION_QUERY);
 
-  let online = connectivity.isOnline();
-  let reducedMotion = media?.matches ?? false;
+let online = connectivity.isOnline();
+let reducedMotion = media?.matches ?? false;
 
-  const onConnectivity = (value: boolean): void => {
-    if (destroyed || value === online) return;
-    const previous = getSnapshot();
-    online = value;
-    emit(previous);
-  };
+const onConnectivity = (value: boolean): void => {
+  if (destroyed || value === online) return;
+  const previous = getSnapshot();
+  online = value;
+  emit(previous);
+};
 
-  const onMedia = (event: { matches: boolean }): void => {
-    if (destroyed || event.matches === reducedMotion) return;
-    const previous = getSnapshot();
-    reducedMotion = event.matches;
-    emit(previous);
-  };
+const onMedia = (event: { matches: boolean }): void => {
+  if (destroyed || event.matches === reducedMotion) return;
+  const previous = getSnapshot();
+  reducedMotion = event.matches;
+  emit(previous);
+};
 
-  const unsubscribeConnectivity = connectivity.subscribe(onConnectivity);
-  media?.addEventListener('change', onMedia);
+const unsubscribeConnectivity = connectivity.subscribe(onConnectivity);
+media?.addEventListener('change', onMedia);
 ```
 
 Y en `destroy()`, antes de `listeners.clear()`:
 
 ```ts
-    unsubscribeConnectivity();
-    media?.removeEventListener('change', onMedia);
+unsubscribeConnectivity();
+media?.removeEventListener('change', onMedia);
 ```
 
 - [ ] **Step 5: Ejecutar toda la suite del core**
@@ -792,6 +806,7 @@ git commit -m "feat(core): offline como override derivado y señal de reduced-mo
 Aquí se resuelve el desajuste entre `AssistantState` y el contrato del `.riv`: booleanos continuos frente a triggers de un disparo.
 
 **Files:**
+
 - Create: `packages/tess-rive/src/mount.ts`
 - Create: `packages/tess-rive/src/mount.test.ts`
 - Create: `packages/tess-rive/vitest.config.ts`
@@ -800,6 +815,7 @@ Aquí se resuelve el desajuste entre `AssistantState` y el contrato del `.riv`: 
 - Modify: `pnpm-workspace.yaml`
 
 **Interfaces:**
+
 - Consumes: `TessCore`, `TessSnapshot` de Tasks 2-4; `ARTBOARD_NAME`, `STATE_MACHINE_NAME`, `RIVE_TRIGGERS`, `RIVE_BOOLEANS` de `./contract.js`.
 - Produces: `mountTessRive(options)`, `TessRiveHandle` con `greet()` y `destroy()`, `MountTessRiveOptions`.
 
@@ -808,7 +824,7 @@ Aquí se resuelve el desajuste entre `AssistantState` y el contrato del `.riv`: 
 En `pnpm-workspace.yaml`, dentro de `catalog:`, bajo la sección `# Toolchain`:
 
 ```yaml
-  jsdom: ^28.1.0
+jsdom: ^30.1.0
 ```
 
 Añadir a `devDependencies` de `packages/tess-rive/package.json`:
@@ -862,7 +878,10 @@ import { createTessCore } from '@teams4soft/tess-core';
 import { RIVE_BOOLEANS, RIVE_TRIGGERS } from './contract.js';
 import { mountTessRive } from './mount.js';
 
-const inputs = new Map<string, { name: string; value: boolean; fire: ReturnType<typeof vi.fn> }>();
+const inputs = new Map<
+  string,
+  { name: string; value: boolean; fire: ReturnType<typeof vi.fn> }
+>();
 
 function makeInput(name: string) {
   const input = { name, value: false, fire: vi.fn() };
@@ -991,7 +1010,8 @@ export interface TessRiveHandle {
   destroy(): void;
 }
 
-const DEFAULT_SRC = new URL('../assets/teams4soft-tess.riv', import.meta.url).href;
+const DEFAULT_SRC = new URL('../assets/teams4soft-tess.riv', import.meta.url)
+  .href;
 
 interface RiveInput {
   name: string;
@@ -1017,10 +1037,9 @@ export function mountTessRive(options: MountTessRiveOptions): TessRiveHandle {
     onLoad: () => {
       if (destroyed) return;
       inputs = new Map(
-        (rive.stateMachineInputs(STATE_MACHINE_NAME) as RiveInput[]).map((input) => [
-          input.name,
-          input,
-        ]),
+        (rive.stateMachineInputs(STATE_MACHINE_NAME) as RiveInput[]).map(
+          (input) => [input.name, input],
+        ),
       );
       apply(core.getSnapshot());
     },
@@ -1092,10 +1111,12 @@ git commit -m "feat(rive): traducir AssistantState a inputs de TessStateMachine"
 Pausa fuera de viewport, nitidez en pantallas HiDPI y una limpieza que no deje nada colgando.
 
 **Files:**
+
 - Modify: `packages/tess-rive/src/mount.ts`
 - Create: `packages/tess-rive/src/lifecycle.test.ts`
 
 **Interfaces:**
+
 - Consumes: `mountTessRive` de Task 5.
 - Produces: sin API nueva; `destroy()` pasa a desconectar observers.
 
@@ -1116,7 +1137,8 @@ const riveInstance = {
   resizeDrawingSurfaceToCanvas: vi.fn(),
 };
 
-let intersectionCallback: ((entries: { isIntersecting: boolean }[]) => void) | undefined;
+let intersectionCallback:
+  ((entries: { isIntersecting: boolean }[]) => void) | undefined;
 const observerInstances: { disconnect: ReturnType<typeof vi.fn> }[] = [];
 
 vi.mock('@rive-app/canvas', () => ({
@@ -1235,28 +1257,28 @@ Expected: FAIL — `pause` nunca se llama; los observers no existen.
 En `packages/tess-rive/src/mount.ts`, dentro de `mountTessRive`, antes del `return`:
 
 ```ts
-  // Pausa fuera de viewport: un avatar que no se ve no debe gastar frames.
-  const viewport = new IntersectionObserver((entries) => {
-    if (destroyed) return;
-    const visible = entries.some((entry) => entry.isIntersecting);
-    if (visible) rive.play();
-    else rive.pause();
-  });
-  viewport.observe(canvas);
+// Pausa fuera de viewport: un avatar que no se ve no debe gastar frames.
+const viewport = new IntersectionObserver((entries) => {
+  if (destroyed) return;
+  const visible = entries.some((entry) => entry.isIntersecting);
+  if (visible) rive.play();
+  else rive.pause();
+});
+viewport.observe(canvas);
 
-  // Nitidez en HiDPI: el buffer del canvas debe seguir a su tamaño en CSS.
-  const resize = new ResizeObserver(() => {
-    if (destroyed) return;
-    rive.resizeDrawingSurfaceToCanvas();
-  });
-  resize.observe(canvas);
+// Nitidez en HiDPI: el buffer del canvas debe seguir a su tamaño en CSS.
+const resize = new ResizeObserver(() => {
+  if (destroyed) return;
+  rive.resizeDrawingSurfaceToCanvas();
+});
+resize.observe(canvas);
 ```
 
 Y dentro de `destroy()`, entre `unsubscribe()` y `rive.cleanup()`:
 
 ```ts
-      viewport.disconnect();
-      resize.disconnect();
+viewport.disconnect();
+resize.disconnect();
 ```
 
 - [ ] **Step 4: Ejecutar toda la suite de tess-rive**
@@ -1278,6 +1300,7 @@ git commit -m "feat(rive): pausa fuera de viewport, resize HiDPI y destroy compl
 El custom element con su shadow DOM, el launcher accesible y el avatar montado dentro.
 
 **Files:**
+
 - Create: `packages/tess-web-component/src/element.ts`
 - Create: `packages/tess-web-component/src/styles.ts`
 - Create: `packages/tess-web-component/src/element.test.ts`
@@ -1286,6 +1309,7 @@ El custom element con su shadow DOM, el launcher accesible y el avatar montado d
 - Modify: `packages/tess-web-component/package.json`
 
 **Interfaces:**
+
 - Consumes: `createTessCore` (Tasks 2-4), `mountTessRive` (Tasks 5-6), `THEMES`/`SIZES`/`POSITIONS`/`DEFAULT_SIZE`/`DEFAULT_POSITION`/`TessAssistantConfig` (Task 1).
 - Produces: clase `TessAssistantElement` registrada como `teams4soft-assistant`; propiedades `state`, `theme`, `size`, `position`; método `destroy()`; eventos `tess:state`, `tess:error`; `LABELS` por locale.
 
@@ -1363,7 +1387,9 @@ describe('teams4soft-assistant', () => {
 
   it('monta un shadow root abierto con launcher accesible', () => {
     const element = create();
-    const launcher = element.shadowRoot!.querySelector('button[part="launcher"]');
+    const launcher = element.shadowRoot!.querySelector(
+      'button[part="launcher"]',
+    );
     expect(launcher).not.toBeNull();
     expect(launcher!.getAttribute('aria-haspopup')).toBe('dialog');
     expect(launcher!.getAttribute('aria-expanded')).toBe('false');
@@ -1382,20 +1408,26 @@ describe('teams4soft-assistant', () => {
     element.addEventListener('tess:state', seen);
     element.setAttribute('state', 'listening');
     expect(seen).toHaveBeenCalledTimes(1);
-    expect((seen.mock.calls[0][0] as CustomEvent).detail.state).toBe('listening');
+    expect((seen.mock.calls[0][0] as CustomEvent).detail.state).toBe(
+      'listening',
+    );
   });
 
   it('usa las etiquetas del locale pedido', () => {
     const element = create();
     element.setAttribute('locale', 'en');
-    const launcher = element.shadowRoot!.querySelector('button[part="launcher"]')!;
+    const launcher = element.shadowRoot!.querySelector(
+      'button[part="launcher"]',
+    )!;
     expect(launcher.getAttribute('aria-label')).toBe('Open the Tess assistant');
   });
 
   it('cae al español si el locale no está soportado', () => {
     const element = create();
     element.setAttribute('locale', 'de');
-    const launcher = element.shadowRoot!.querySelector('button[part="launcher"]')!;
+    const launcher = element.shadowRoot!.querySelector(
+      'button[part="launcher"]',
+    )!;
     expect(launcher.getAttribute('aria-label')).toBe('Abrir el asistente Tess');
   });
 
@@ -1411,7 +1443,9 @@ describe('teams4soft-assistant', () => {
   it('destroy deja el shadow root vacío y desconecta el core', () => {
     const element = create();
     element.destroy();
-    expect(element.shadowRoot!.querySelector('button[part="launcher"]')).toBeNull();
+    expect(
+      element.shadowRoot!.querySelector('button[part="launcher"]'),
+    ).toBeNull();
   });
 });
 ```
@@ -1535,7 +1569,14 @@ import { STYLES } from './styles.js';
 
 export const TAG_NAME = 'teams4soft-assistant';
 
-const OBSERVED = ['state', 'theme', 'size', 'position', 'api-url', 'locale'] as const;
+const OBSERVED = [
+  'state',
+  'theme',
+  'size',
+  'position',
+  'api-url',
+  'locale',
+] as const;
 
 export class TessAssistantElement extends HTMLElement {
   static readonly observedAttributes = OBSERVED;
@@ -1557,8 +1598,10 @@ export class TessAssistantElement extends HTMLElement {
   connectedCallback(): void {
     if (this.#core) return;
     if (!this.hasAttribute('theme')) this.setAttribute('theme', 'auto');
-    if (!this.hasAttribute('size')) this.setAttribute('size', String(DEFAULT_SIZE));
-    if (!this.hasAttribute('position')) this.setAttribute('position', DEFAULT_POSITION);
+    if (!this.hasAttribute('size'))
+      this.setAttribute('size', String(DEFAULT_SIZE));
+    if (!this.hasAttribute('position'))
+      this.setAttribute('position', DEFAULT_POSITION);
 
     const root = this.shadowRoot ?? this.attachShadow({ mode: 'open' });
     const style = document.createElement('style');
@@ -1569,7 +1612,10 @@ export class TessAssistantElement extends HTMLElement {
     launcher.setAttribute('part', 'launcher');
     launcher.setAttribute('aria-haspopup', 'dialog');
     launcher.setAttribute('aria-expanded', 'false');
-    launcher.setAttribute('aria-label', labelsFor(this.getAttribute('locale')).launcher);
+    launcher.setAttribute(
+      'aria-label',
+      labelsFor(this.getAttribute('locale')).launcher,
+    );
 
     const canvas = document.createElement('canvas');
     const fallback = document.createElement('span');
@@ -1581,7 +1627,9 @@ export class TessAssistantElement extends HTMLElement {
 
     this.#launcher = launcher;
     this.#fallback = fallback;
-    this.#core = createTessCore({ onError: (error) => this.#emitError('core', error) });
+    this.#core = createTessCore({
+      onError: (error) => this.#emitError('core', error),
+    });
     this.#unsubscribe = this.#core.subscribe((snapshot) => {
       this.dispatchEvent(
         new CustomEvent<TessStateDetail>('tess:state', {
@@ -1609,17 +1657,30 @@ export class TessAssistantElement extends HTMLElement {
     this.destroy();
   }
 
-  attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+  attributeChangedCallback(
+    name: string,
+    _old: string | null,
+    value: string | null,
+  ): void {
     if (!this.#core) return;
     if (name === 'state' && value !== null) {
       if (isRequestedState(value)) this.#core.setState(value);
-      else this.#emitError('bad-state', new Error(`Estado desconocido: ${value}`));
+      else
+        this.#emitError('bad-state', new Error(`Estado desconocido: ${value}`));
     }
     if (name === 'size') this.#syncSize();
-    if (name === 'theme' && value !== null && !THEMES.includes(value as never)) {
+    if (
+      name === 'theme' &&
+      value !== null &&
+      !THEMES.includes(value as never)
+    ) {
       this.setAttribute('theme', 'auto');
     }
-    if (name === 'position' && value !== null && !POSITIONS.includes(value as never)) {
+    if (
+      name === 'position' &&
+      value !== null &&
+      !POSITIONS.includes(value as never)
+    ) {
       this.setAttribute('position', DEFAULT_POSITION);
     }
     if (name === 'api-url') this.#config.apiUrl = value ?? undefined;
@@ -1646,7 +1707,10 @@ export class TessAssistantElement extends HTMLElement {
   #syncSize(): void {
     const raw = Number(this.getAttribute('size'));
     if (!SIZES.includes(raw as never)) {
-      this.#emitError('bad-size', new Error(`Tamaño no soportado: ${this.getAttribute('size')}`));
+      this.#emitError(
+        'bad-size',
+        new Error(`Tamaño no soportado: ${this.getAttribute('size')}`),
+      );
       this.setAttribute('size', String(DEFAULT_SIZE));
       return;
     }
@@ -1698,11 +1762,13 @@ git commit -m "feat(web-component): launcher flotante accesible con avatar y fal
 `<dialog>` con `show()`: la página sigue usable. A cambio, Escape y el foco se gestionan a mano.
 
 **Files:**
+
 - Modify: `packages/tess-web-component/src/element.ts`
 - Modify: `packages/tess-web-component/src/styles.ts`
 - Create: `packages/tess-web-component/src/dialog.test.ts`
 
 **Interfaces:**
+
 - Consumes: `TessAssistantElement` de Task 7.
 - Produces: `openChat()`, `closeChat()`; eventos `tess:open`, `tess:close`.
 
@@ -1750,7 +1816,9 @@ describe('diálogo no modal', () => {
 
   it('actualiza aria-expanded del launcher', () => {
     const element = create();
-    const launcher = element.shadowRoot!.querySelector('button[part="launcher"]')!;
+    const launcher = element.shadowRoot!.querySelector(
+      'button[part="launcher"]',
+    )!;
     element.openChat();
     expect(launcher.getAttribute('aria-expanded')).toBe('true');
     element.closeChat();
@@ -1773,7 +1841,9 @@ describe('diálogo no modal', () => {
     const element = create();
     const dialog = element.shadowRoot!.querySelector('dialog')!;
     element.openChat();
-    dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    dialog.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+    );
     expect(dialog.open).toBe(false);
   });
 
@@ -1836,23 +1906,26 @@ Añadir al final de la plantilla `STYLES` en `packages/tess-web-component/src/st
 El campo `#dialog` ya se declaró en la Task 7. En `connectedCallback`, tras crear el launcher y antes de `root.append(...)`:
 
 ```ts
-    const dialog = document.createElement('dialog');
-    dialog.setAttribute('part', 'dialog');
-    dialog.setAttribute('aria-label', labelsFor(this.getAttribute('locale')).dialog);
-    dialog.id = `tess-dialog-${Math.random().toString(36).slice(2, 8)}`;
-    // El panel de conversación llega en Fase 2: aquí solo va la cáscara.
-    dialog.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        this.closeChat();
-      }
-    });
-    launcher.setAttribute('aria-controls', dialog.id);
-    launcher.addEventListener('click', () => {
-      if (dialog.open) this.closeChat();
-      else this.openChat();
-    });
-    this.#dialog = dialog;
+const dialog = document.createElement('dialog');
+dialog.setAttribute('part', 'dialog');
+dialog.setAttribute(
+  'aria-label',
+  labelsFor(this.getAttribute('locale')).dialog,
+);
+dialog.id = `tess-dialog-${Math.random().toString(36).slice(2, 8)}`;
+// El panel de conversación llega en Fase 2: aquí solo va la cáscara.
+dialog.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    this.closeChat();
+  }
+});
+launcher.setAttribute('aria-controls', dialog.id);
+launcher.addEventListener('click', () => {
+  if (dialog.open) this.closeChat();
+  else this.openChat();
+});
+this.#dialog = dialog;
 ```
 
 Cambiar el append a `root.append(style, launcher, dialog);`
@@ -1906,12 +1979,14 @@ git commit -m "feat(web-component): diálogo no modal con Escape y devolución d
 Congela la costura con F2. Es la tarea más pequeña del plan y la que más trabajo ahorra después.
 
 **Files:**
+
 - Modify: `packages/tess-client/src/index.ts`
 - Create: `packages/tess-client/src/noop.test.ts`
 - Modify: `packages/tess-web-component/src/element.ts`
 - Modify: `packages/tess-web-component/package.json`
 
 **Interfaces:**
+
 - Consumes: `TessClientLike`, `SendMessageInput` de Task 1.
 - Produces: `createNoopTessClient()`; `TessAssistantElement.setClient(client)`.
 
@@ -1927,7 +2002,10 @@ describe('createNoopTessClient', () => {
   it('satisface TessClientLike sin emitir eventos', async () => {
     const client = createNoopTessClient();
     const received = [];
-    for await (const event of client.sendMessage({ conversationId: 'c1', text: 'hola' })) {
+    for await (const event of client.sendMessage({
+      conversationId: 'c1',
+      text: 'hola',
+    })) {
       received.push(event);
     }
     expect(received).toEqual([]);
@@ -2014,6 +2092,7 @@ git commit -m "feat(client): cliente noop y setClient para congelar la costura c
 Una envoltura del mismo núcleo, no una implementación paralela.
 
 **Files:**
+
 - Create: `packages/tess-svelte/src/Tess.svelte`
 - Modify: `packages/tess-svelte/src/index.ts`
 - Modify: `packages/tess-svelte/package.json`
@@ -2021,6 +2100,7 @@ Una envoltura del mismo núcleo, no una implementación paralela.
 - Modify: `pnpm-workspace.yaml`
 
 **Interfaces:**
+
 - Consumes: el custom element de Tasks 7-9.
 - Produces: componente Svelte `Tess` con props `state`, `theme`, `size`, `position`, `apiUrl`, `locale`.
 
@@ -2029,7 +2109,7 @@ Una envoltura del mismo núcleo, no una implementación paralela.
 En `pnpm-workspace.yaml`, en la sección `# Svelte` del catálogo:
 
 ```yaml
-  '@sveltejs/package': ^2.5.4
+'@sveltejs/package': ^2.5.4
 ```
 
 - [ ] **Step 2: Migrar el build del paquete**
@@ -2067,7 +2147,11 @@ Crear `packages/tess-svelte/src/Tess.svelte`:
 ```svelte
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { TessPosition, TessSize, TessTheme } from '@teams4soft/tess-types';
+  import type {
+    TessPosition,
+    TessSize,
+    TessTheme,
+  } from '@teams4soft/tess-types';
 
   interface Props {
     state?: string;
@@ -2132,9 +2216,11 @@ git commit -m "feat(svelte): wrapper Tess.svelte con build vía @sveltejs/packag
 La superficie de validación manual y el entregable visible de la fase.
 
 **Files:**
+
 - Modify: `apps/demo-svelte/src/routes/+page.svelte`
 
 **Interfaces:**
+
 - Consumes: `Tess` de Task 10, `ASSISTANT_STATES`/`SIZES`/`THEMES`/`POSITIONS` de Task 1.
 - Produces: nada que otras tareas consuman.
 
@@ -2165,7 +2251,10 @@ Reemplazar el contenido de `apps/demo-svelte/src/routes/+page.svelte`:
   function record(event: Event) {
     const detail = (event as CustomEvent).detail;
     const stamp = new Date().toISOString().slice(11, 23);
-    log = [`${stamp}  ${event.type}  ${JSON.stringify(detail ?? {})}`, ...log].slice(0, 30);
+    log = [
+      `${stamp}  ${event.type}  ${JSON.stringify(detail ?? {})}`,
+      ...log,
+    ].slice(0, 30);
   }
 
   // Los eventos del custom element burbujean y son composed: se capturan aquí.
@@ -2187,7 +2276,9 @@ Reemplazar el contenido de `apps/demo-svelte/src/routes/+page.svelte`:
     <button
       type="button"
       disabled={candidate === 'offline'}
-      title={candidate === 'offline' ? 'Derivado de la conectividad, no se pide' : ''}
+      title={candidate === 'offline'
+        ? 'Derivado de la conectividad, no se pide'
+        : ''}
       onclick={() => (state = candidate)}
     >
       {candidate}
@@ -2239,9 +2330,15 @@ Reemplazar el contenido de `apps/demo-svelte/src/routes/+page.svelte`:
 {/if}
 
 <style>
-  section { margin-block: 1.5rem; }
-  button { margin-inline-end: 0.35rem; }
-  label { margin-inline-end: 1rem; }
+  section {
+    margin-block: 1.5rem;
+  }
+  button {
+    margin-inline-end: 0.35rem;
+  }
+  label {
+    margin-inline-end: 1rem;
+  }
   pre {
     padding: 0.75rem;
     border-radius: 8px;
@@ -2259,6 +2356,7 @@ Reemplazar el contenido de `apps/demo-svelte/src/routes/+page.svelte`:
 Run: `pnpm build && pnpm --filter @teams4soft/demo-svelte dev`
 
 Comprobar en `http://localhost:5173`:
+
 - Los seis estados solicitables mueven el avatar; `offline` está deshabilitado.
 - `success` y `error` vuelven solos a `idle` y la animación **termina justo** cuando el estado cambia. Si se corta antes, ajustar `transientMs`, no el `.riv`.
 - Los cuatro tamaños y las cuatro posiciones se aplican.
@@ -2281,10 +2379,12 @@ git commit -m "feat(demo): panel de pruebas con estados, apariencia y log de eve
 Verificar lo que la spec exige antes de dar la fase por cerrada.
 
 **Files:**
+
 - Create: `scripts/check-bundle.mjs`
 - Modify: `package.json`
 
 **Interfaces:**
+
 - Consumes: todos los paquetes construidos.
 - Produces: script `pnpm gate:f1`.
 
@@ -2312,11 +2412,16 @@ const forbidden = [
 const found = forbidden.filter(([, pattern]) => pattern.test(bundle));
 
 if (found.length > 0) {
-  console.error('FALLO: el bundle contiene:', found.map(([name]) => name).join(', '));
+  console.error(
+    'FALLO: el bundle contiene:',
+    found.map(([name]) => name).join(', '),
+  );
   process.exit(1);
 }
 
-console.log(`OK: tess.global.js limpio (${(bundle.length / 1024).toFixed(1)} kB)`);
+console.log(
+  `OK: tess.global.js limpio (${(bundle.length / 1024).toFixed(1)} kB)`,
+);
 ```
 
 - [ ] **Step 2: Añadir el script del gate**
@@ -2397,17 +2502,17 @@ git commit -m "chore: script de gate de Fase 1 con verificación del bundle"
 
 ## Resumen de tareas
 
-| # | Tarea | Entregable verificable |
-| --- | --- | --- |
-| 1 | `tess-types` | `RequestedState`, tipos del componente y `TessClientLike` |
-| 2 | `tess-core` store | snapshot, suscripción, destroy inerte |
-| 3 | `tess-core` transitorios | `success`/`error` vuelven a `idle` sin pisar interacciones |
-| 4 | `tess-core` entorno | offline como override, reduced-motion |
-| 5 | `tess-rive` traducción | estado → booleanos y triggers |
-| 6 | `tess-rive` ciclo de vida | pausa en viewport, resize, destroy completo |
-| 7 | `tess-web-component` launcher | shadow DOM, atributos, fallback CSS |
-| 8 | `tess-web-component` diálogo | `show()`, Escape, foco |
-| 9 | `tess-client` noop | costura con F2 congelada |
-| 10 | `tess-svelte` | wrapper con `@sveltejs/package` |
-| 11 | demo | panel de pruebas |
-| 12 | gate | `pnpm gate:f1`, `npm pack`, fallback |
+| #   | Tarea                         | Entregable verificable                                     |
+| --- | ----------------------------- | ---------------------------------------------------------- |
+| 1   | `tess-types`                  | `RequestedState`, tipos del componente y `TessClientLike`  |
+| 2   | `tess-core` store             | snapshot, suscripción, destroy inerte                      |
+| 3   | `tess-core` transitorios      | `success`/`error` vuelven a `idle` sin pisar interacciones |
+| 4   | `tess-core` entorno           | offline como override, reduced-motion                      |
+| 5   | `tess-rive` traducción        | estado → booleanos y triggers                              |
+| 6   | `tess-rive` ciclo de vida     | pausa en viewport, resize, destroy completo                |
+| 7   | `tess-web-component` launcher | shadow DOM, atributos, fallback CSS                        |
+| 8   | `tess-web-component` diálogo  | `show()`, Escape, foco                                     |
+| 9   | `tess-client` noop            | costura con F2 congelada                                   |
+| 10  | `tess-svelte`                 | wrapper con `@sveltejs/package`                            |
+| 11  | demo                          | panel de pruebas                                           |
+| 12  | gate                          | `pnpm gate:f1`, `npm pack`, fallback                       |

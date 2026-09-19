@@ -22,12 +22,12 @@ Aunque F2 todavía no use `assistant.source`, se define desde el principio:
 
 ```ts
 type AssistantStreamEvent =
-  | { type: "assistant.state"; state: AssistantState }
-  | { type: "assistant.delta"; text: string }
-  | { type: "assistant.completed"; messageId: string }
-  | { type: "assistant.error"; code: string; message: string }
+  | { type: 'assistant.state'; state: AssistantState }
+  | { type: 'assistant.delta'; text: string }
+  | { type: 'assistant.completed'; messageId: string }
+  | { type: 'assistant.error'; code: string; message: string }
   | {
-      type: "assistant.source";
+      type: 'assistant.source';
       source: {
         title: string;
         url?: string;
@@ -317,7 +317,7 @@ Pero `offline` parece ser un estado derivado, no un estado solicitado por el int
 Sería más preciso separar los tipos:
 
 ```ts
-type RequestedState = Exclude<AssistantState, "offline">;
+type RequestedState = Exclude<AssistantState, 'offline'>;
 
 interface TessSnapshot {
   state: AssistantState;
@@ -330,7 +330,7 @@ interface TessSnapshot {
 Así se evita este caso ambiguo:
 
 ```ts
-setState("offline");
+setState('offline');
 ```
 
 Si `offline` es solamente un override derivado de la conexión, el integrador no debería poder solicitarlo como un estado normal.
@@ -339,7 +339,7 @@ También conviene definir qué ocurre si se llama a:
 
 ```ts
 core.destroy();
-core.setState("thinking");
+core.setState('thinking');
 ```
 
 La respuesta debería estar especificada, por ejemplo:
