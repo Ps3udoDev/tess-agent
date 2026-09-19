@@ -1,3 +1,4 @@
+import { createNoopTessClient } from '@teams4soft/tess-client';
 import { createTessCore, type TessCore } from '@teams4soft/tess-core';
 import { mountTessRive, type TessRiveHandle } from '@teams4soft/tess-rive';
 import {
@@ -10,6 +11,7 @@ import {
   type AssistantState,
   type RequestedState,
   type TessAssistantConfig,
+  type TessClientLike,
   type TessErrorDetail,
   type TessPosition,
   type TessSize,
@@ -33,6 +35,7 @@ export class TessAssistantElement extends HTMLElement {
   #fallback: HTMLSpanElement | undefined;
   #unsubscribe: (() => void) | undefined;
   #config: TessAssistantConfig = {};
+  #client: TessClientLike = createNoopTessClient();
 
   // `state` conserva su semántica de lectura actual: expone el estado
   // EFECTIVO del core (puede diferir de lo pedido, p. ej. bajo `offline`).
@@ -73,6 +76,22 @@ export class TessAssistantElement extends HTMLElement {
 
   set position(value: TessPosition) {
     this.setAttribute('position', value);
+  }
+
+  /**
+   * Punto de inyección congelado en Fase 1.
+   *
+   * Fase 2 solo sustituye la implementación: ni los atributos, ni los
+   * métodos, ni los eventos de este elemento cambian por conectar el
+   * backend real.
+   */
+  setClient(client: TessClientLike): void {
+    this.#client = client;
+  }
+
+  /** Cliente actualmente inyectado (noop por defecto en Fase 1). */
+  getClient(): TessClientLike {
+    return this.#client;
   }
 
   connectedCallback(): void {

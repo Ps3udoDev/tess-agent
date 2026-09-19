@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as tessCoreModule from '@teams4soft/tess-core';
 import { mountTessRive } from '@teams4soft/tess-rive';
-import type { TessPosition, TessSize, TessTheme } from '@teams4soft/tess-types';
+import type {
+  AssistantStreamEvent,
+  SendMessageInput,
+  TessClientLike,
+  TessPosition,
+  TessSize,
+  TessTheme,
+} from '@teams4soft/tess-types';
 import { TAG_NAME } from './index.js';
 
 type TessAssistantTestElement = HTMLElement & {
@@ -10,6 +17,8 @@ type TessAssistantTestElement = HTMLElement & {
   size: TessSize;
   position: TessPosition;
   destroy(): void;
+  setClient(client: TessClientLike): void;
+  getClient(): TessClientLike;
 };
 
 function create(): TessAssistantTestElement {
@@ -164,5 +173,24 @@ describe('teams4soft-assistant', () => {
     element.setAttribute('position', 'middle-of-nowhere');
     document.body.append(element);
     expect(element.getAttribute('position')).toBe('bottom-right');
+  });
+
+  it('empieza con un cliente noop y setClient sustituye la instancia inyectada', async () => {
+    const element = create();
+    const initial = element.getClient();
+    const received: AssistantStreamEvent[] = [];
+    for await (const event of initial.sendMessage({ conversationId: 'c1', text: 'hola' })) {
+      received.push(event);
+    }
+    expect(received).toEqual([]);
+
+    const fakeClient: TessClientLike = {
+      // eslint-disable-next-line require-yield -- doble de prueba, no emite eventos.
+      async *sendMessage(_input: SendMessageInput) {
+        return;
+      },
+    };
+    element.setClient(fakeClient);
+    expect(element.getClient()).toBe(fakeClient);
   });
 });
