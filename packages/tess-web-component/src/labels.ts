@@ -1,6 +1,7 @@
+import type { AssistantState } from '@teams4soft/tess-types';
+
 /**
- * Único texto de Fase 1. El diálogo va vacío, así que `locale` solo gobierna
- * las etiquetas accesibles del launcher y del panel.
+ * Textos de accesibilidad y UI del asistente Tess.
  */
 export const LABELS = {
   es: { launcher: 'Abrir el asistente Tess', dialog: 'Asistente Tess' },
@@ -12,4 +13,39 @@ export const DEFAULT_LOCALE: TessLocale = 'es';
 
 export function labelsFor(locale: string | null | undefined) {
   return LABELS[locale as TessLocale] ?? LABELS[DEFAULT_LOCALE];
+}
+
+export interface ChatLabels {
+  conversacion: string;
+  escribe: string;
+  enviar: string;
+  estados: Partial<Record<AssistantState, string>>;
+}
+
+const CHAT_ES: ChatLabels = {
+  conversacion: 'Conversación con Tess',
+  escribe: 'Escribe tu mensaje',
+  enviar: 'Enviar',
+  estados: {
+    thinking: 'Pensando',
+    speaking: 'Respondiendo',
+    error: 'Ocurrió un error',
+    offline: 'Sin conexión',
+  },
+};
+
+const CHAT_EN: ChatLabels = {
+  conversacion: 'Conversation with Tess',
+  escribe: 'Type your message',
+  enviar: 'Send',
+  estados: {
+    thinking: 'Thinking',
+    speaking: 'Answering',
+    error: 'Something went wrong',
+    offline: 'Offline',
+  },
+};
+
+export function chatLabelsFor(locale: string): ChatLabels {
+  return locale.startsWith('en') ? CHAT_EN : CHAT_ES;
 }

@@ -12,17 +12,22 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run --passWithNoTests",
+    "test:rls": "vitest run src/rls.test.ts",
     "clean": "rm -rf dist .turbo *.tsbuildinfo"
   },
   "dependencies": {
     "@fastify/cors": "catalog:",
     "@fastify/helmet": "catalog:",
+    "@fastify/rate-limit": "catalog:",
     "@fastify/sensible": "catalog:",
     "@sentry/node": "catalog:",
     "@supabase/supabase-js": "catalog:",
+    "ai": "catalog:",
+    "@ai-sdk/gateway": "catalog:",
     "@teams4soft/tess-types": "workspace:*",
     "dotenv": "catalog:",
     "fastify": "catalog:",
+    "fastify-plugin": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },

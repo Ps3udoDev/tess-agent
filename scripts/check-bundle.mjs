@@ -9,6 +9,9 @@ const forbidden = [
   ['URL de Supabase', /supabase\.co/i],
   ['localhost', /localhost:\d+/],
   ['clave JWT', /eyJhbGciOi/],
+  ['zod', /ZodType|zodError|\$ZodType/],
+  ['clave pública en el bundle', /pk_live_/],
+  ['AI Gateway key', /vck_/],
 ];
 
 const found = forbidden.filter(([, pattern]) => pattern.test(bundle));

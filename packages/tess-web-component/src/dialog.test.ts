@@ -76,7 +76,7 @@ describe('diálogo no modal', () => {
     // focosable dentro de la cáscara vacía) el listener de `keydown`,
     // anclado al propio diálogo, jamás lo recibiría.
     const active = element.shadowRoot!.activeElement;
-    expect(active).toBe(dialog);
+    expect(dialog.contains(active)).toBe(true);
 
     active!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
     expect(dialog.open).toBe(false);

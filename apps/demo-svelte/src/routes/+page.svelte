@@ -1,5 +1,8 @@
 <script lang="ts">
+  import { env } from '$env/dynamic/public';
+  import { onMount } from 'svelte';
   import { Tess } from '@teams4soft/tess-svelte';
+  import '@teams4soft/tess-web-component';
   import {
     ASSISTANT_STATES,
     POSITIONS,
@@ -10,6 +13,36 @@
     type TessSize,
     type TessTheme,
   } from '@teams4soft/tess-types';
+
+  const PUBLIC_TESS_API_URL = env.PUBLIC_TESS_API_URL ?? 'http://localhost:8080';
+  const PUBLIC_TESS_PROJECT_ID = env.PUBLIC_TESS_PROJECT_ID ?? '';
+
+  let eventos = $state<string[]>([]);
+
+  function registrar(nombre: string, detalle: unknown) {
+    eventos = [...eventos, `${nombre} ${JSON.stringify(detalle)}`].slice(-50);
+  }
+
+  onMount(() => {
+    const el = document.querySelector('teams4soft-assistant');
+    if (!el) return;
+    const nombres = [
+      'tess:open',
+      'tess:close',
+      'tess:state',
+      'tess:error',
+      'tess:message',
+      'tess:lead',
+    ];
+
+    const quitar = nombres.map((n) => {
+      const fn = (e: Event) => registrar(n, (e as CustomEvent).detail);
+      el.addEventListener(n, fn);
+      return () => el.removeEventListener(n, fn);
+    });
+
+    return () => quitar.forEach((f) => f());
+  });
 
   // Nombrada `requestedState`, no `state`: un `let state = $state(...)` colisiona
   // con la sintaxis legacy de auto-suscripción a stores (`$state` == "el store
@@ -62,6 +95,26 @@
 </script>
 
 <h1>Tess — panel de pruebas</h1>
+
+<section class="chat-real">
+  <h2>Conversación contra el API local</h2>
+
+  <teams4soft-assistant
+    api-url={PUBLIC_TESS_API_URL}
+    project-id={PUBLIC_TESS_PROJECT_ID}
+    public-key="pk_dev_tess_local_0001"
+    locale="es"
+    size="96"
+    position="bottom-right"
+  ></teams4soft-assistant>
+
+  <h3>Log de eventos SSE</h3>
+  <ol class="log">
+    {#each eventos as evento, i (i)}
+      <li><code>{evento}</code></li>
+    {/each}
+  </ol>
+</section>
 
 <section>
   <h2>Estado</h2>
@@ -144,7 +197,8 @@
   label {
     margin-inline-end: 1rem;
   }
-  pre {
+  pre,
+  .log {
     padding: 0.75rem;
     border-radius: 8px;
     background: #11151a;

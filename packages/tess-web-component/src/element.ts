@@ -1,4 +1,4 @@
-import { createNoopTessClient } from '@teams4soft/tess-client';
+import { createNoopTessClient, createTessClient, TessHttpError } from '@teams4soft/tess-client';
 import { createTessCore, type TessCore } from '@teams4soft/tess-core';
 import { mountTessRive, type TessRiveHandle } from '@teams4soft/tess-rive';
 import {
@@ -18,11 +18,23 @@ import {
   type TessSize,
   type TessStateDetail,
   type TessTheme,
+  type TessViewer,
 } from '@teams4soft/tess-types';
+import { createChatView, type ChatView } from './chat.js';
 import { labelsFor } from './labels.js';
+import { createLeadForm, debeMostrarLead, type LeadForm } from './lead-form.js';
 import { STYLES } from './styles.js';
 
-const OBSERVED = ['state', 'theme', 'size', 'position', 'api-url', 'locale'] as const;
+const OBSERVED = [
+  'state',
+  'theme',
+  'size',
+  'position',
+  'api-url',
+  'project-id',
+  'public-key',
+  'locale',
+] as const;
 
 const BaseElement =
   typeof HTMLElement !== 'undefined' ? HTMLElement : (class {} as unknown as typeof HTMLElement);
@@ -37,7 +49,16 @@ export class TessAssistantElement extends BaseElement {
   #fallback: HTMLSpanElement | undefined;
   #unsubscribe: (() => void) | undefined;
   #config: TessAssistantConfig = {};
-  #client: TessClientLike = createNoopTessClient();
+  readonly #noopClient: TessClientLike = createNoopTessClient();
+  #client: TessClientLike = this.#noopClient;
+  #clientInjected = false;
+  #publicKey: string | undefined;
+  #chat: ChatView | undefined;
+  #conversationId: string | undefined;
+  #enviando = false;
+  #viewer: TessViewer | undefined;
+  #leadForm: LeadForm | undefined;
+  #restaurando: Promise<void> | undefined;
 
   // `state` conserva su semántica de lectura actual: expone el estado
   // EFECTIVO del core (puede diferir de lo pedido, p. ej. bajo `offline`).
@@ -88,12 +109,37 @@ export class TessAssistantElement extends BaseElement {
    * backend real.
    */
   setClient(client: TessClientLike): void {
+    this.#clientInjected = true;
     this.#client = client;
   }
 
   /** Cliente actualmente inyectado (noop por defecto en Fase 1). */
   getClient(): TessClientLike {
     return this.#client;
+  }
+
+  /** Solo para tests: indica si el cliente es el real o el noop. */
+  hasRealClient(): boolean {
+    return this.#client !== this.#noopClient;
+  }
+
+  /**
+   * Construye el cliente real cuando están los tres datos.
+   *
+   * `setClient()` tiene prioridad: si el integrador inyectó el suyo, el
+   * componente no construye nada.
+   */
+  #maybeCreateClient(): void {
+    if (this.#clientInjected) return;
+
+    const { apiUrl, projectId } = this.#config;
+    if (!apiUrl || !projectId || !this.#publicKey) return;
+
+    this.#client = createTessClient({
+      apiUrl,
+      projectId,
+      publicKey: this.#publicKey,
+    });
   }
 
   connectedCallback(): void {
@@ -186,6 +232,32 @@ export class TessAssistantElement extends BaseElement {
   }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+    if (name === 'api-url') {
+      if (value === null) delete this.#config.apiUrl;
+      else this.#config.apiUrl = value;
+      this.#maybeCreateClient();
+      return;
+    }
+    if (name === 'project-id') {
+      if (value === null) delete this.#config.projectId;
+      else this.#config.projectId = value;
+      this.#maybeCreateClient();
+      return;
+    }
+    if (name === 'public-key') {
+      this.#publicKey = value ?? undefined;
+      this.#maybeCreateClient();
+      return;
+    }
+    if (name === 'locale') {
+      if (value === null) delete this.#config.locale;
+      else this.#config.locale = value;
+      const labels = labelsFor(value);
+      this.#launcher?.setAttribute('aria-label', labels.launcher);
+      this.#dialog?.setAttribute('aria-label', labels.dialog);
+      return;
+    }
+
     if (!this.#core) return;
     if (name === 'state' && value !== null) {
       if (isRequestedState(value)) this.#core.setState(value);
@@ -194,17 +266,6 @@ export class TessAssistantElement extends BaseElement {
     if (name === 'size') this.#syncSize();
     if (name === 'theme') this.#syncTheme();
     if (name === 'position') this.#syncPosition();
-    if (name === 'api-url') {
-      if (value === null) delete this.#config.apiUrl;
-      else this.#config.apiUrl = value;
-    }
-    if (name === 'locale') {
-      if (value === null) delete this.#config.locale;
-      else this.#config.locale = value;
-      const labels = labelsFor(value);
-      this.#launcher?.setAttribute('aria-label', labels.launcher);
-      this.#dialog?.setAttribute('aria-label', labels.dialog);
-    }
   }
 
   /**
@@ -220,15 +281,25 @@ export class TessAssistantElement extends BaseElement {
     this.#launcher?.setAttribute('aria-expanded', 'true');
     this.setAttribute('open', '');
     this.#rive?.greet();
-    // Si no hay nada focosable dentro (la cáscara de Fase 1), el foco entra
-    // en el propio diálogo (ver `dialog.tabIndex = -1` más arriba). Sin esto
-    // el foco se quedaría en el launcher y el Escape de abajo nunca llegaría
-    // a su listener, que está anclado al diálogo.
-    const focusTarget =
-      dialog.querySelector<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      ) ?? dialog;
-    focusTarget.focus();
+
+    if (!this.#chat) {
+      this.#chat = createChatView({
+        root: this.#dialog!,
+        locale: this.#config.locale ?? 'es',
+        onSend: (texto) => void this.#enviar(texto),
+      });
+      this.#chat.mount();
+
+      const saludo = (this.#client as { getGreeting?(): string | null }).getGreeting?.();
+      if (saludo) this.#chat.append('assistant', saludo);
+
+      // Se guarda la promesa: `#enviar` la espera antes de decidir si crea una
+      // conversación nueva. Sin eso, escribir rápido tras abrir abriría una
+      // conversación distinta de la que se está recuperando.
+      this.#restaurando = this.#restaurar();
+    }
+
+    this.#chat.focusComposer();
     this.dispatchEvent(new CustomEvent('tess:open', { bubbles: true, composed: true }));
   }
 
@@ -244,6 +315,10 @@ export class TessAssistantElement extends BaseElement {
   }
 
   destroy(): void {
+    this.#leadForm?.destroy();
+    this.#leadForm = undefined;
+    this.#chat?.destroy();
+    this.#chat = undefined;
     this.#unsubscribe?.();
     this.#rive?.destroy();
     this.#core?.destroy();
@@ -254,6 +329,222 @@ export class TessAssistantElement extends BaseElement {
     this.#dialog = undefined;
     this.#fallback = undefined;
     if (this.shadowRoot) this.shadowRoot.replaceChildren();
+  }
+
+  /**
+   * Un turno completo.
+   *
+   * El servidor emite `thinking` y `speaking`. `completed` y `error` los
+   * traduce el cliente a los transitorios de tess-core: sus duraciones están
+   * en DEFAULT_TRANSIENT_MS y no se escriben aquí.
+   */
+  async #enviar(texto: string): Promise<void> {
+    if (this.#enviando || !this.#chat) return;
+    this.#enviando = true;
+
+    try {
+      this.#chat.append('user', texto);
+      this.#emit('tess:message', { role: 'user', content: texto });
+
+      // La recuperación puede seguir en curso: si trae conversación, es esta.
+      await this.#restaurando;
+
+      if (!this.#conversationId) {
+        const creada = await this.#client.createConversation?.();
+        if (creada?.conversationId) this.#recordarConversacion(creada.conversationId);
+      }
+
+      if (!this.#conversationId) {
+        this.#core?.setState('error');
+        this.#emit('tess:error', {
+          code: 'internal',
+          message: 'No se pudo abrir la conversación.',
+        });
+        return;
+      }
+
+      this.#chat.beginStreaming();
+
+      for await (const evento of this.#client.sendMessage({
+        conversationId: this.#conversationId,
+        text: texto,
+      })) {
+        switch (evento.event) {
+          case 'assistant.state':
+            if (isRequestedState(evento.data.state)) {
+              this.#core?.setState(evento.data.state);
+            }
+            this.#chat.setStatus(evento.data.state);
+            break;
+
+          case 'assistant.delta':
+            this.#chat.pushDelta(evento.data.text);
+            break;
+
+          case 'assistant.completed': {
+            const completo = this.#chat.commitStreamingAndRead();
+            this.#chat.setStatus(null);
+            // `success` vuelve solo a `idle`: lo gobierna tess-core.
+            this.#core?.setState('success');
+            this.#emit('tess:message', { role: 'assistant', content: completo });
+            this.#quizaPedirLead();
+            break;
+          }
+
+          case 'assistant.error':
+            this.#chat.commitStreaming();
+            this.#chat.setStatus('error');
+            this.#core?.setState('error');
+            this.#emit('tess:error', { code: evento.data.code, message: evento.data.message });
+            break;
+
+          // assistant.source llega en F3. Se ignora sin romper nada.
+          default:
+            break;
+        }
+      }
+    } catch (error) {
+      // Un `Origin` rechazado, un 401 o el API caído no producen un evento
+      // `assistant.error`: revientan la promesa. Sin este `catch` era un
+      // rejection no manejado, no se emitía `tess:error`, el estado no
+      // cambiaba y la burbuja se quedaba con `aria-busy="true"` mientras la
+      // región viva anunciaba «Pensando» para siempre.
+      // `destroy()` pudo correr mientras el envío estaba en vuelo y dejar
+      // `#chat` en `undefined`: sin `?.` el propio manejador de errores
+      // lanzaría un `TypeError` y produciría otro rejection no manejado, la
+      // misma clase de fallo que este `catch` viene a evitar.
+      this.#chat?.commitStreaming();
+      // `error` vuelve solo a `idle`: lo gobierna tess-core.
+      this.#core?.setState('error');
+      this.#chat?.setStatus('error');
+      this.#emit<TessErrorDetail>('tess:error', {
+        code: 'internal',
+        message: 'No pude enviar tu mensaje. Inténtalo de nuevo.',
+      });
+      // El detalle técnico no va al usuario, pero sí a la consola del
+      // integrador: `message` es texto para humanos y no lleva interioridades.
+      console.warn('[tess] fallo al enviar el mensaje', error);
+    } finally {
+      this.#enviando = false;
+    }
+  }
+
+  /** Solo tras la primera respuesta completa, y solo a prospectos. */
+  #quizaPedirLead(): void {
+    if (this.#leadForm || !this.#viewer || !this.#dialog) return;
+
+    const clave = `tess:lead-dismissed:${this.#config.projectId ?? ''}`;
+    let descartado = false;
+    try {
+      descartado = globalThis.localStorage?.getItem(clave) === '1';
+    } catch {
+      // Almacenamiento bloqueado: se muestra, que es el comportamiento útil.
+    }
+
+    if (!debeMostrarLead(this.#viewer, descartado)) return;
+
+    this.#leadForm = createLeadForm({
+      root: this.#dialog,
+      locale: this.#config.locale ?? 'es',
+      // El formulario espera a la promesa antes de retirarse del DOM: antes
+      // desaparecía sin saber si el lead se había guardado, y un fallo de red
+      // se tragaba los datos que la persona acababa de escribir.
+      onSubmit: async (input) => {
+        const r = await this.#client.submitLead?.(input);
+        if (r) this.#emit('tess:lead', { leadId: r.leadId });
+      },
+      onDismiss: () => {
+        try {
+          globalThis.localStorage?.setItem(clave, '1');
+        } catch {
+          // El descarte es una preferencia local. Si no se puede guardar,
+          // volverá a aparecer en la próxima visita y no pasa nada.
+        }
+      },
+    });
+
+    this.#leadForm.mount();
+  }
+
+  /**
+   * Clave del id de conversación.
+   *
+   * `localStorage` y no memoria porque el gate manual pide que recargar la
+   * página recupere la conversación, y el id es lo único que falta: la sesión
+   * ya la persiste `tess-client` bajo `tess:session:<projectId>`.
+   */
+  #claveConversacion(): string {
+    return `tess:conversation:${this.#config.projectId ?? ''}`;
+  }
+
+  #recordarConversacion(id: string): void {
+    this.#conversationId = id;
+    try {
+      globalThis.localStorage?.setItem(this.#claveConversacion(), id);
+    } catch {
+      // Navegación privada o almacenamiento bloqueado: la conversación vive
+      // en memoria y se pierde al recargar. No es motivo para romper el chat.
+    }
+  }
+
+  #conversacionGuardada(): string | undefined {
+    try {
+      return globalThis.localStorage?.getItem(this.#claveConversacion()) ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Descarta el id de conversación guardado.
+   *
+   * Para cuando la sesión se reacuñó (`auth.uid()` cambió) y el id ya no
+   * pertenece a este visitante: sin esto, `#restaurar` lo conservaba «a
+   * propósito», `#enviar` nunca llamaba a `createConversation` y el widget
+   * quedaba muerto para siempre con un 404 `project_not_found`.
+   */
+  #olvidarConversacion(): void {
+    this.#conversationId = undefined;
+    try {
+      globalThis.localStorage?.removeItem(this.#claveConversacion());
+    } catch {
+      // Navegación privada o almacenamiento bloqueado: no hay nada que borrar.
+    }
+  }
+
+  /**
+   * Recupera viewer e historial tras un recargado de página.
+   *
+   * No rechaza nunca: `#enviar` la espera, y un fallo aquí —API caído, 401,
+   * `Origin` rechazado— no debe dejar el widget inservible. Si `getViewer()`
+   * lanzaba, `#viewer` se quedaba `undefined` y el formulario de lead no
+   * aparecía jamás; ahora se avisa por `tess:error` y el chat sigue.
+   */
+  async #restaurar(): Promise<void> {
+    try {
+      this.#viewer = await this.#client.getViewer?.();
+    } catch (error) {
+      this.#emitError('viewer', error as Error);
+    }
+
+    this.#conversationId ??= this.#conversacionGuardada();
+
+    if (!this.#conversationId || !this.#chat) return;
+
+    try {
+      const previos = await this.#client.listMessages?.(this.#conversationId);
+      for (const m of previos ?? []) this.#chat.append(m.role, m.content);
+    } catch (error) {
+      // 404 (proyecto/conversación ya no existe) o 401 (sesión reacuñada,
+      // el id ya no es de este visitante): el id guardado no sirve, se
+      // descarta para que `#enviar` cree una conversación nueva. Cualquier
+      // otro fallo —5xx, error de red— es transitorio: se conserva el id,
+      // que es justo lo que el gate pide recuperar.
+      if (error instanceof TessHttpError && (error.status === 404 || error.status === 401)) {
+        this.#olvidarConversacion();
+      }
+      this.#emitError('history', error as Error);
+    }
   }
 
   #syncSize(): void {
@@ -280,14 +571,18 @@ export class TessAssistantElement extends BaseElement {
     }
   }
 
-  #emitError(code: string, error: Error): void {
+  #emit<T>(name: string, detail: T): void {
     this.dispatchEvent(
-      new CustomEvent<TessErrorDetail>('tess:error', {
-        detail: { code, message: error.message },
+      new CustomEvent<T>(name, {
+        detail,
         bubbles: true,
         composed: true,
       }),
     );
+  }
+
+  #emitError(code: string, error: Error): void {
+    this.#emit<TessErrorDetail>('tess:error', { code, message: error.message });
   }
 }
 

@@ -17,3 +17,15 @@ vi.stubGlobal('ResizeObserver', ObserverStub);
 vi.mock('@teams4soft/tess-rive', () => ({
   mountTessRive: vi.fn(() => ({ greet: vi.fn(), destroy: vi.fn() })),
 }));
+
+if (typeof HTMLDialogElement !== 'undefined') {
+  HTMLDialogElement.prototype.show ??= function show(this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.showModal ??= function showModal(this: HTMLDialogElement) {
+    this.open = true;
+  };
+  HTMLDialogElement.prototype.close ??= function close(this: HTMLDialogElement) {
+    this.open = false;
+  };
+}
