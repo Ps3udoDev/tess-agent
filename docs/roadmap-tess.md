@@ -182,6 +182,20 @@ dónde lo sacó.
 respuesta con `assistant.source` apuntando al documento correcto. La búsqueda
 vectorial nunca cruza tenants, demostrado con un test que lo intenta.
 
+**Condición heredada de F2, bloqueante antes de desplegar.**
+`projects_select_visitor` deja a cualquier autenticado enumerar los proyectos
+con `visitor_access` de todos los tenants. Entre las columnas de `projects` no
+hay secretos, pero con esa lista de `project_id` en la mano **un JWT anónimo
+acuñado desde el widget de un tenant sirve para abrir conversaciones y enviar
+mensajes en el proyecto de otro**: la validación de `Origin` y el rate limit
+guardan el minteo, no el uso posterior. Consecuencias: consumo del presupuesto
+de modelo de la víctima y conversaciones ajenas apareciendo a sus miembros.
+
+No bloqueó la fusión de F2 porque esa fase corre solo en local, pero **no puede
+salir de local sin acotar la política**: atar el `select` al proyecto de la
+sesión, por ejemplo con un claim en el minteo o una tabla de sesiones de
+visitante. Es condición de entrada de F3, no un recordatorio.
+
 **Decisiones aplazadas a su spec.** Tamaño y solape del chunk; si el visitante
 anónimo puede consultar documentos o solo el miembro autenticado; reindexado al
 cambiar de modelo de embeddings; si la ingestión se dispara por webhook de
