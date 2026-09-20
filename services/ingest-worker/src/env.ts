@@ -26,6 +26,7 @@ const envSchema = z.object({
   OPENROUTER_API_KEY: z.string().optional(),
   OPENROUTER_EMBEDDING_MODEL: z
     .string()
+    .min(1)
     .default('openai/text-embedding-3-small'),
   OPENROUTER_HTTP_REFERER: z.string().optional(),
   OPENROUTER_APP_TITLE: z.string().default('Tess'),

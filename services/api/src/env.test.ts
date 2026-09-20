@@ -21,14 +21,16 @@ describe('loadEnv', () => {
     );
   });
 
-  it('EMBEDDING_PROVIDER=openrouter exige clave y modelo de embeddings', () => {
-    expect(() =>
-      loadEnv({
-        ...BASE,
-        EMBEDDING_PROVIDER: 'openrouter',
-        OPENROUTER_API_KEY: 'k',
-      }),
-    ).toThrow(/OPENROUTER_EMBEDDING_MODEL/);
+  it('EMBEDDING_PROVIDER=openrouter exige la clave', () => {
+    expect(() => loadEnv({ ...BASE, EMBEDDING_PROVIDER: 'openrouter' })).toThrow(
+      /OPENROUTER_API_KEY/,
+    );
+  });
+
+  it('rechaza un modelo de embeddings vacío', () => {
+    // El campo tiene default, así que nunca puede FALTAR; lo que sí puede
+    // llegar es una cadena vacía, que un `.default()` no intercepta.
+    expect(() => loadEnv({ ...BASE, OPENROUTER_EMBEDDING_MODEL: '' })).toThrow();
   });
 
   it('rechaza que el modelo de chat y el de embeddings sean el mismo', () => {

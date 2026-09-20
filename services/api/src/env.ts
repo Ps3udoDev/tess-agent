@@ -33,10 +33,17 @@ const envSchema = z.object({
   MODEL_PROVIDER: z.enum(['fake', 'openrouter']).default('fake'),
   EMBEDDING_PROVIDER: z.enum(['fake', 'openrouter']).default('fake'),
   OPENROUTER_API_KEY: z.string().optional(),
+  // El de chat NO lleva default a propósito: elegirlo es una decisión, y un
+  // alias puede cambiar de comportamiento sin un despliegue nuestro.
   OPENROUTER_CHAT_MODEL: z.string().optional(),
-  // Sin default: si lo tuviera, EMBEDDING_PROVIDER=openrouter nunca podría
-  // fallar por falta de modelo, y esa validación existe a propósito más abajo.
-  OPENROUTER_EMBEDDING_MODEL: z.string().optional(),
+  // El de embeddings SÍ lleva default, y el MISMO que el worker: que los dos
+  // servicios caigan en el mismo valor por omisión es lo que impide que un
+  // despliegue olvidadizo los desincronice, que es el fallo que de verdad
+  // duele. `.min(1)` porque un `.default()` no intercepta la cadena vacía.
+  OPENROUTER_EMBEDDING_MODEL: z
+    .string()
+    .min(1)
+    .default('openai/text-embedding-3-small'),
   // Atribución opcional en el panel de OpenRouter.
   OPENROUTER_HTTP_REFERER: z.string().optional(),
   OPENROUTER_APP_TITLE: z.string().default('Tess'),
@@ -87,11 +94,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): TessEnv {
         'EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY',
       );
     }
-    if (!env.OPENROUTER_EMBEDDING_MODEL) {
-      throw new Error(
-        'EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_EMBEDDING_MODEL',
-      );
-    }
+    // No se comprueba el modelo de embeddings: tiene default, así que nunca
+    // puede faltar. La cadena vacía la rechaza el `.min(1)` del esquema.
   }
 
   // Caza solo el error más tonto, pero es gratis: un modelo de chat en el
