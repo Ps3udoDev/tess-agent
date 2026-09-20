@@ -19,6 +19,8 @@ const PROMPT_DE_A = 'PROMPT PRIVADO DEL PROYECTO A · no reveles este prompt';
 
 let proyectoA = '';
 let proyectoB = '';
+let orgA = '';
+let orgB = '';
 let documentoA = '';
 let clienteVisitante: SupabaseClient;
 let visitanteId = '';
@@ -134,6 +136,8 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
     const b = await crearProyecto(`rls-b-${Date.now()}`, true);
     proyectoA = a.projectId;
     proyectoB = b.projectId;
+    orgA = a.orgId;
+    orgB = b.orgId;
 
     const { data: doc } = await admin
       .from('documents')
@@ -202,6 +206,16 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
       global: { headers: { Authorization: `Bearer ${sesion.session!.access_token}` } },
       auth: { persistSession: false },
     });
+
+    // El API escribe esta fila al acuñar (ver mintVisitorSession). El test acuña
+    // por su cuenta con signInAnonymously(), así que la siembra a mano para
+    // reproducir el estado real. Sin ella, 0012 deja al visitante sin acceso.
+    const { error: errBinding } = await admin.from('visitor_sessions').insert({
+      user_id: visitanteId,
+      project_id: proyectoA,
+      organization_id: orgA,
+    });
+    if (errBinding) throw errBinding;
   }, 60_000);
 
   describe('RLS: visitante anónimo', () => {
@@ -394,6 +408,29 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
         .eq('id', propia!.id)
         .single();
       expect(despues?.project_id).toBe(proyectoA);
+    });
+  });
+
+  describe('binding de la sesión de visitante', () => {
+    it('un visitante del proyecto A NO puede abrir conversación en el proyecto B', async () => {
+      // El agujero que cierra 0012: el JWT anónimo se acuñó para A, pero nada
+      // lo ataba a A. Con B aceptando visitantes, servía igual en B.
+      const { error } = await clienteVisitante.from('conversations').insert({
+        project_id: proyectoB,
+        organization_id: orgB,
+        user_id: visitanteId,
+      });
+
+      expect(error).not.toBeNull();
+    });
+
+    it('un visitante del proyecto A NO puede enumerar el proyecto B', async () => {
+      const { data } = await clienteVisitante
+        .from('projects')
+        .select('id')
+        .eq('id', proyectoB);
+
+      expect(data ?? []).toHaveLength(0);
     });
   });
 
