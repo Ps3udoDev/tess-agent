@@ -11,6 +11,7 @@
  *
  *   - acuñar la sesión del visitante      · todavía no hay JWT
  *   - escribir visitor_sessions           · el binding, en el mismo acto
+ *   - refrescar last_seen_at              · 0012 revoca el grant a anon/authenticated
  *   - insertar el mensaje del asistente   · messages_insert_own solo deja 'user'
  *   - escribir audit_events               · sin política de insert
  *   - leer project_widget_settings        · se lee antes de que exista el JWT
@@ -78,6 +79,9 @@ async function plugin(app: FastifyInstance): Promise<void> {
   /**
    * Acuñar la sesión del visitante y atarla a su proyecto.
    *
+   * Por qué service_role: todavía no hay JWT. Es el acto de crearlo, así que
+   * no hay credencial de usuario con la que pedirle esto a Supabase.
+   *
    * La fila de `visitor_sessions` se escribe ANTES de devolver el token, y el
    * orden no es cosmético: desde 0012 las políticas la exigen, así que un
    * cliente rápido que recibiera el token antes de que exista la fila se
@@ -121,7 +125,14 @@ async function plugin(app: FastifyInstance): Promise<void> {
     },
   );
 
-  /** `last_seen_at` al refrescar. El binding no cambia: auth.uid() es el mismo. */
+  /**
+   * `last_seen_at` al refrescar. El binding no cambia: auth.uid() es el mismo.
+   *
+   * Por qué service_role: aunque el refresco ya trae un JWT de visitante
+   * válido, no sirve aquí. 0012 hace `revoke all ... from anon, authenticated`
+   * sobre `visitor_sessions`, así que ningún JWT de usuario —ni el del propio
+   * visitante— puede escribir esta tabla bajo ninguna circunstancia.
+   */
   app.decorate('touchVisitorSession', async (userId: string): Promise<void> => {
     const { error } = await serviceClient
       .from('visitor_sessions')

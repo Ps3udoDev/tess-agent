@@ -11,6 +11,7 @@ async function appConMocks(
       projectId: string;
       organizationId: string;
     }) => Promise<{ accessToken: string; refreshToken: string; expiresAt: number; userId: string }>;
+    touchVisitorSession?: (userId: string) => Promise<void>;
   } = {},
 ) {
   const app = await buildApp();
@@ -44,6 +45,12 @@ async function appConMocks(
   );
   vi.spyOn(app, 'recordAuditEvent').mockResolvedValue(undefined);
   vi.spyOn(app, 'listWidgetOrigins').mockResolvedValue(['http://localhost:5173']);
+  // Sin este mock, el handler de refresco llama al touchVisitorSession real y
+  // dispara una petición de verdad contra Supabase local con el userId falso
+  // de este helper ('u'), que ni siquiera es un uuid.
+  vi.spyOn(app, 'touchVisitorSession').mockImplementation(
+    overrides.touchVisitorSession ?? (async () => undefined),
+  );
 
   await app.ready();
   return { app, minted };
@@ -268,6 +275,26 @@ describe('POST /v1/visitor-sessions/refresh', () => {
     });
 
     expect(res.statusCode).toBe(404);
+
+    await app.close();
+  });
+});
+
+describe('touchVisitorSession', () => {
+  it('no lanza si la actualización falla: la registra y sigue', async () => {
+    // Decorador real, sin mockear: aquí se comprueba el contrato en sí, no el
+    // handler de la ruta (que ya usa el mock de arriba).
+    const app = await buildApp();
+    await app.ready();
+
+    // El error es esperado —es justo lo que se comprueba— así que se silencia
+    // el logger para esta aserción en vez de dejarlo ensuciar la salida.
+    const logError = vi.spyOn(app.log, 'error').mockImplementation(() => app.log);
+
+    // 'no-es-un-uuid' no es un user_id válido: el UPDATE falla en Supabase, y
+    // el contrato es que touchVisitorSession lo registra y NO lanza.
+    await expect(app.touchVisitorSession('no-es-un-uuid')).resolves.toBeUndefined();
+    expect(logError).toHaveBeenCalledTimes(1);
 
     await app.close();
   });
