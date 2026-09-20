@@ -6696,7 +6696,7 @@ git commit -m "feat(demo): pestana de conversacion real contra el API local con 
 - Consumes: todo lo anterior.
 - Produces: `pnpm gate:f2`.
 
-- [ ] **Step 1: Ampliar la comprobación del bundle**
+- [x] **Step 1: Ampliar la comprobación del bundle**
 
 En `scripts/check-bundle.mjs`, añadir a `forbidden`:
 
@@ -6710,7 +6710,7 @@ zod entra en el bundle en cuanto alguien reexporte `tess-types/api` desde la
 raíz del paquete de tipos. Es un fallo silencioso: no rompe nada, solo engorda
 lo que descarga cada visitante de cada landing.
 
-- [ ] **Step 2: Añadir el script del gate**
+- [x] **Step 2: Añadir el script del gate**
 
 En `package.json` raíz, en `scripts`:
 
@@ -6718,7 +6718,7 @@ En `package.json` raíz, en `scripts`:
 "gate:f2": "pnpm build && pnpm test && pnpm typecheck && pnpm lint && node scripts/check-bundle.mjs"
 ```
 
-- [ ] **Step 3: Ejecutar el gate completo**
+- [x] **Step 3: Ejecutar el gate completo**
 
 ```bash
 pnpm supabase:start
@@ -6727,7 +6727,7 @@ pnpm gate:f2
 
 Expected: todo en verde, incluidos los tests de RLS.
 
-- [ ] **Step 4: Comprobar el tamaño del bundle**
+- [x] **Step 4: Comprobar el tamaño del bundle**
 
 ```bash
 node scripts/check-bundle.mjs
@@ -6738,7 +6738,7 @@ de chat y el cliente deberían sumar pocas decenas de kB. Si se dispara por
 encima de 300 kB, algo se coló: revisar con
 `npx esbuild --analyze packages/tess-web-component/dist/tess.global.js`.
 
-- [ ] **Step 5: Actualizar el roadmap**
+- [x] **Step 5: Actualizar el roadmap**
 
 En `docs/roadmap-tess.md`, tabla **Estado**, cambiar la fila de F2:
 
@@ -6755,7 +6755,7 @@ cerrar —como mínimo: el rate limiter sigue siendo en memoria y hay que
 sustituirlo antes de producción; no hay panel admin para
 `project_widget_settings` y las claves se siembran por SQL.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/check-bundle.mjs package.json docs/roadmap-tess.md

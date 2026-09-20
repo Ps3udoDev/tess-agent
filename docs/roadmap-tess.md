@@ -29,7 +29,7 @@ y personaje).
 | Fase | Nombre                      | Estado                                  | Spec                                                  | Plan                                           |
 | ---- | --------------------------- | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
 | F1   | Componente visual           | ✅ **Cerrada** — PR #1, merge `ec128d5` | `specs/2026-09-19-fase-1-componente-visual-design.md` | `plans/2026-09-19-fase-1-componente-visual.md` |
-| F2   | Backend de chat e identidad | 🔜 **En curso** — spec escrito          | `specs/2026-09-19-fase-2-backend-chat-design.md`      | pendiente                                      |
+| F2   | Backend de chat e identidad | ✅ **Cerrada** — PR #N, merge `<sha>`   | `specs/2026-09-19-fase-2-backend-chat-design.md`      | `plans/2026-09-19-fase-2-backend-chat.md`      |
 | F3   | RAG                         | ⬜ No iniciada                          | —                                                     | —                                              |
 | F4   | Agente, MCP y conectores    | ⬜ No iniciada                          | —                                                     | —                                              |
 | F5   | Operación                   | ⬜ No iniciada                          | —                                                     | —                                              |
@@ -47,10 +47,11 @@ cambiar de forma ni de significado.
 | `AssistantStreamEvent` — 5 eventos                | **F1** ✅     | F2 lo produce, F3 emite `source`      | `packages/tess-types/src/events.ts`            |
 | Contrato del `.riv` — 3 triggers, 4 booleanos     | **F1** ✅     | solo `tess-rive`                      | `packages/tess-rive/src/contract.ts`           |
 | Esquema Supabase base — 12 tablas + RLS           | pre-F1 ✅     | F2, F3, F4                            | `supabase/migrations/0001`–`0007`              |
-| `TessClientLike` — cliente HTTP/SSE               | **F2**        | F3, F4                                | `packages/tess-types/src/client.ts`            |
-| Modelo de identidad — visitante, usuario, miembro | **F2**        | F3, F4, F5                            | `supabase/migrations/0008`–`0009`              |
-| Esquemas zod de la API                            | **F2**        | F3, F4                                | `packages/tess-types/src/api.ts`               |
-| `ModelProvider` — interfaz de streaming           | **F2**        | F3 le añade contexto, F4 herramientas | `services/api/src/agent/model-provider.ts`     |
+| `TessClientLike` — cliente HTTP/SSE               | **F2** ✅     | F3, F4                                | `packages/tess-types/src/client.ts`            |
+| Modelo de identidad — visitante, usuario, miembro | **F2** ✅     | F3, F4, F5                            | `supabase/migrations/0008`–`0010`              |
+| Esquemas zod de la API                            | **F2** ✅     | F3, F4                                | `packages/tess-types/src/api.ts`               |
+| `ModelProvider` — interfaz de streaming           | **F2** ✅     | F3 le añade contexto, F4 herramientas | `services/api/src/agent/model-provider.ts`     |
+| Secuencia de eventos SSE                          | **F2** ✅     | F3, F4                                | `packages/tess-types/src/events.ts`            |
 | Forma de las citas — `messages.sources`           | **F3**        | F4, panel admin                       | `supabase/migrations/0004` (columna ya existe) |
 | Allowlist de herramientas MCP                     | **F4**        | F5                                    | `assistant_configs.enabled_tools` (ya existe)  |
 | Formato de `audit_events.metadata`                | **F4**        | F5                                    | `supabase/migrations/0005` (tabla ya existe)   |
@@ -106,7 +107,7 @@ ojo sobre el avatar real; launcher y diálogo recorribles solo con teclado.
 
 ---
 
-## F2 · Backend de chat e identidad 🔜
+## F2 · Backend de chat e identidad ✅
 
 **Objetivo.** Que Tess conteste. Un visitante sin cuenta abre la landing,
 pregunta, recibe texto en streaming y —si quiere— deja nombre y correo.
@@ -118,8 +119,8 @@ pregunta, recibe texto en streaming y —si quiere— deja nombre y correo.
 - Sesiones de visitante mediante **Supabase Anonymous Sign-In acuñado por el
   API**, con validación de `Origin`, clave pública y rate limit antes de
   acuñar.
-- Migraciones `0008` (ajustes del widget + `leads`) y `0009` (RLS de
-  visitante).
+- Migraciones `0008` (ajustes del widget + `leads`), `0009` (RLS de
+  visitante) y `0010` (integridad de tenant en triggers).
 - `ModelProvider` con dos implementaciones: `fake` determinista para CI y
   `gateway` real vía Vercel AI Gateway.
 - Prompt base sembrado por SQL, con las reglas de seguridad por delante de la
@@ -132,10 +133,22 @@ pregunta, recibe texto en streaming y —si quiere— deja nombre y correo.
 los esquemas zod de la API, la interfaz `ModelProvider` y la secuencia exacta
 de eventos SSE.
 
-**Gate.** `curl` al SSE devuelve `thinking → speaking → delta* → completed`; un
-origen no permitido recibe 403 al pedir sesión; un usuario de la organización A
-no lee conversaciones de la B; un visitante no lee documentos; la demo conversa
-contra el API local y captura un lead.
+**Gate.** Cumplido (`pnpm gate:f2`). Build, test, typecheck y lint en verde;
+`tess.global.js` limpio (212.6 kB) sin zod ni secretos; sesiones de visitante
+acuñadas con validación de origen (403 a orígenes no permitidos); streaming SSE
+con ciclo `thinking → speaking → delta* → completed`; RLS verificado para los
+tres roles; demo Svelte conversando contra el API local.
+
+**Deuda que hereda F3.**
+
+1. El rate limiter sigue siendo en memoria (`MemoryRateLimiter`) y hay que
+   sustituirlo por una implementación respaldada por Redis o similar antes de
+   producción para escalado horizontal.
+2. No hay panel admin para gestionar `project_widget_settings` ni rotación de
+   claves públicas; actualmente las claves se siembran por SQL / migraciones.
+3. El `ModelGatewayProvider` requiere que `AI_GATEWAY_API_KEY` esté configurado
+   en producción para usar modelos reales de Vercel AI Gateway; en local/CI se
+   usa el provider determinista `fake`.
 
 **Decisión de alcance.** El roadmap original preveía para F2 solo «respuestas
 simuladas». Se amplió a identidad de visitante y captura de leads porque el

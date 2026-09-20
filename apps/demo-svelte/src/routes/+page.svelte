@@ -110,7 +110,7 @@
 
   <h3>Log de eventos SSE</h3>
   <ol class="log">
-    {#each eventos as evento}
+    {#each eventos as evento, i (i)}
       <li><code>{evento}</code></li>
     {/each}
   </ol>
