@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../app.js';
 
 describe('corsPlugin', () => {
@@ -6,6 +6,7 @@ describe('corsPlugin', () => {
     const app = await buildApp({
       env: { CORS_ALLOWED_ORIGINS: 'http://localhost:5173' },
     });
+    vi.spyOn(app, 'listWidgetOrigins').mockResolvedValue([]);
     await app.ready();
 
     const res = await app.inject({
@@ -26,6 +27,7 @@ describe('corsPlugin', () => {
     const app = await buildApp({
       env: { CORS_ALLOWED_ORIGINS: 'http://localhost:5173' },
     });
+    vi.spyOn(app, 'listWidgetOrigins').mockResolvedValue([]);
     await app.ready();
 
     const res = await app.inject({
@@ -38,6 +40,27 @@ describe('corsPlugin', () => {
     });
 
     expect(res.headers['access-control-allow-origin']).toBeUndefined();
+
+    await app.close();
+  });
+
+  it('refleja un origen dinámico proveniente de listWidgetOrigins', async () => {
+    const app = await buildApp({
+      env: { CORS_ALLOWED_ORIGINS: '' },
+    });
+    vi.spyOn(app, 'listWidgetOrigins').mockResolvedValue(['https://tienda.example']);
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'OPTIONS',
+      url: '/health',
+      headers: {
+        origin: 'https://tienda.example',
+        'access-control-request-method': 'GET',
+      },
+    });
+
+    expect(res.headers['access-control-allow-origin']).toBe('https://tienda.example');
 
     await app.close();
   });

@@ -31,6 +31,7 @@ async function appConMocks(overrides: { settings?: unknown; minted?: number } = 
       : null,
   );
   vi.spyOn(app, 'recordAuditEvent').mockResolvedValue(undefined);
+  vi.spyOn(app, 'listWidgetOrigins').mockResolvedValue(['http://localhost:5173']);
 
   await app.ready();
   return { app, minted };

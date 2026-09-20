@@ -22,9 +22,13 @@ async function plugin(app: FastifyInstance): Promise<void> {
   async function refrescar(): Promise<Set<string>> {
     if (Date.now() - cargadoEn < REFRESCO_MS) return cache;
 
-    const filas = await app.listWidgetOrigins();
-    cache = new Set([...delEntorno, ...filas]);
-    cargadoEn = Date.now();
+    try {
+      const filas = await app.listWidgetOrigins();
+      cache = new Set([...delEntorno, ...filas]);
+      cargadoEn = Date.now();
+    } catch (err) {
+      app.log.warn({ err }, 'no se pudieron cargar orígenes de widgets desde la base de datos');
+    }
     return cache;
   }
 
