@@ -3,7 +3,16 @@ import { buildApp } from '../app.js';
 
 const PK = 'pk_dev_tess_local_0001';
 
-async function appConMocks(overrides: { settings?: unknown; minted?: number } = {}) {
+async function appConMocks(
+  overrides: {
+    settings?: unknown;
+    minted?: number;
+    mintVisitorSession?: (input: {
+      projectId: string;
+      organizationId: string;
+    }) => Promise<{ accessToken: string; refreshToken: string; expiresAt: number; userId: string }>;
+  } = {},
+) {
   const app = await buildApp();
   const minted = { veces: 0 };
 
@@ -21,10 +30,13 @@ async function appConMocks(overrides: { settings?: unknown; minted?: number } = 
       : null,
   );
 
-  vi.spyOn(app, 'mintVisitorSession').mockImplementation(async () => {
-    minted.veces += 1;
-    return { accessToken: 'a', refreshToken: 'r', expiresAt: 999, userId: 'u' };
-  });
+  vi.spyOn(app, 'mintVisitorSession').mockImplementation(
+    overrides.mintVisitorSession ??
+      (async () => {
+        minted.veces += 1;
+        return { accessToken: 'a', refreshToken: 'r', expiresAt: 999, userId: 'u' };
+      }),
+  );
   vi.spyOn(app, 'refreshVisitorSession').mockImplementation(async (refreshToken: string) =>
     refreshToken === 'r-bueno'
       ? { accessToken: 'a2', refreshToken: 'r2', expiresAt: 1999, userId: 'u' }
@@ -123,6 +135,32 @@ describe('POST /v1/visitor-sessions', () => {
     expect(res.statusCode).toBe(201);
     expect(res.json()).toMatchObject({ accessToken: 'a', greeting: 'hola' });
     expect(minted.veces).toBe(1);
+
+    await app.close();
+  });
+
+  it('escribe el binding del visitante antes de devolver el token', async () => {
+    const bindings: Array<{ projectId: string; organizationId: string }> = [];
+
+    const { app } = await appConMocks({
+      mintVisitorSession: async (input) => {
+        bindings.push(input);
+        return { accessToken: 'at', refreshToken: 'rt', expiresAt: 0, userId: 'u-1' };
+      },
+    });
+
+    const respuesta = await app.inject({
+      method: 'POST',
+      url: '/v1/visitor-sessions',
+      headers: { origin: 'http://localhost:5173' },
+      payload: { publicKey: PK },
+    });
+
+    expect(respuesta.statusCode).toBe(201);
+    expect(bindings).toHaveLength(1);
+    // El proyecto sale de la clave pública resuelta en el servidor, nunca del
+    // cuerpo de la petición.
+    expect(bindings[0]!.projectId).toBe(respuesta.json().projectId);
 
     await app.close();
   });

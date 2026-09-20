@@ -73,7 +73,11 @@ export async function visitorSessionsRoute(app: FastifyInstance): Promise<void> 
     }
 
     // 4. Solo ahora.
-    const session = await app.mintVisitorSession();
+    // El proyecto sale de `settings`, resuelto desde la clave pública.
+    const session = await app.mintVisitorSession({
+      projectId: settings.project_id,
+      organizationId: settings.organization_id,
+    });
 
     // Sin correo, sin nombre, sin contenido: proyecto, IP y acción.
     await app.recordAuditEvent({
@@ -172,6 +176,8 @@ export async function visitorSessionsRoute(app: FastifyInstance): Promise<void> 
         retryable: false,
       });
     }
+
+    await app.touchVisitorSession(session.userId);
 
     return reply.code(200).send({
       accessToken: session.accessToken,

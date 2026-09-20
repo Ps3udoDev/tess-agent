@@ -10,6 +10,7 @@
  * RLS es leer este archivo, no auditar el servicio entero.
  *
  *   - acuñar la sesión del visitante      · todavía no hay JWT
+ *   - escribir visitor_sessions           · el binding, en el mismo acto
  *   - insertar el mensaje del asistente   · messages_insert_own solo deja 'user'
  *   - escribir audit_events               · sin política de insert
  *   - leer project_widget_settings        · se lee antes de que exista el JWT
@@ -74,23 +75,60 @@ async function plugin(app: FastifyInstance): Promise<void> {
     }),
   );
 
-  // Todavía no hay JWT. Es el acto de crearlo.
-  app.decorate('mintVisitorSession', async (): Promise<VisitorSession> => {
-    const mintClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data, error } = await mintClient.auth.signInAnonymously();
+  /**
+   * Acuñar la sesión del visitante y atarla a su proyecto.
+   *
+   * La fila de `visitor_sessions` se escribe ANTES de devolver el token, y el
+   * orden no es cosmético: desde 0012 las políticas la exigen, así que un
+   * cliente rápido que recibiera el token antes de que exista la fila se
+   * comería un 404 en su primera petición.
+   *
+   * Si la escritura falla se borra el usuario recién creado: un anónimo sin
+   * binding no sirve para nada y solo ensucia auth.users.
+   */
+  app.decorate(
+    'mintVisitorSession',
+    async (input: {
+      projectId: string;
+      organizationId: string;
+    }): Promise<VisitorSession> => {
+      const mintClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data, error } = await mintClient.auth.signInAnonymously();
 
-    if (error || !data.session || !data.user) {
-      throw new Error(`no se pudo acuñar la sesión: ${error?.message ?? 'sin sesión'}`);
-    }
+      if (error || !data.session || !data.user) {
+        throw new Error(`no se pudo acuñar la sesión: ${error?.message ?? 'sin sesión'}`);
+      }
 
-    return {
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresAt: data.session.expires_at ?? 0,
-      userId: data.user.id,
-    };
+      const { error: errBinding } = await serviceClient.from('visitor_sessions').insert({
+        user_id: data.user.id,
+        project_id: input.projectId,
+        organization_id: input.organizationId,
+      });
+
+      if (errBinding) {
+        await serviceClient.auth.admin.deleteUser(data.user.id).catch(() => undefined);
+        throw new Error(`no se pudo atar la sesión al proyecto: ${errBinding.message}`);
+      }
+
+      return {
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+        expiresAt: data.session.expires_at ?? 0,
+        userId: data.user.id,
+      };
+    },
+  );
+
+  /** `last_seen_at` al refrescar. El binding no cambia: auth.uid() es el mismo. */
+  app.decorate('touchVisitorSession', async (userId: string): Promise<void> => {
+    const { error } = await serviceClient
+      .from('visitor_sessions')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    if (error) app.log.error({ err: error.message }, 'fallo al refrescar last_seen_at');
   });
 
   /**
@@ -237,7 +275,11 @@ export const supabasePlugin = fp(plugin, { name: 'supabase' });
 declare module 'fastify' {
   interface FastifyInstance {
     userClient(token: string): SupabaseClient;
-    mintVisitorSession(): Promise<VisitorSession>;
+    mintVisitorSession(input: {
+      projectId: string;
+      organizationId: string;
+    }): Promise<VisitorSession>;
+    touchVisitorSession(userId: string): Promise<void>;
     refreshVisitorSession(refreshToken: string): Promise<VisitorSession | null>;
     insertAssistantMessage(input: AssistantMessageInput): Promise<{ id: string }>;
     recordAuditEvent(input: AuditEventInput): Promise<void>;
