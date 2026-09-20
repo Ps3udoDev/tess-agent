@@ -6190,7 +6190,7 @@ El formulario es para **prospectos**, no para cualquiera con un JWT.
 - Consumes: `TessViewer` (Tarea 5), `submitLead()` (Tarea 22).
 - Produces: `debeMostrarLead(viewer, descartado)`, `createLeadForm(options)`, evento `tess:lead`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-web-component/src/lead-form.test.ts`:
 
@@ -6305,12 +6305,12 @@ describe('createLeadForm', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test src/lead-form.test.ts`
 Expected: FAIL, no se resuelve `./lead-form.js`.
 
-- [ ] **Step 3: Escribir el formulario**
+- [x] **Step 3: Escribir el formulario**
 
 Crear `packages/tess-web-component/src/lead-form.ts`:
 
@@ -6455,7 +6455,7 @@ export function createLeadForm(options: LeadFormOptions): LeadForm {
 }
 ```
 
-- [ ] **Step 4: Cablearlo en el elemento**
+- [x] **Step 4: Cablearlo en el elemento**
 
 En `element.ts`, añadir al campo privado:
 
@@ -6517,12 +6517,12 @@ Con este método:
 
 Y en `destroy()`, añadir `this.#leadForm?.destroy();` y `this.#chat?.destroy();`.
 
-- [ ] **Step 5: Ejecutar los tests**
+- [x] **Step 5: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test && pnpm --filter @teams4soft/tess-web-component typecheck && pnpm --filter @teams4soft/tess-web-component lint`
 Expected: PASS, los nueve casos nuevos y todos los de F1.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/tess-web-component

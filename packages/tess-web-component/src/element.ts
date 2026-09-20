@@ -18,9 +18,11 @@ import {
   type TessSize,
   type TessStateDetail,
   type TessTheme,
+  type TessViewer,
 } from '@teams4soft/tess-types';
 import { createChatView, type ChatView } from './chat.js';
 import { labelsFor } from './labels.js';
+import { createLeadForm, debeMostrarLead, type LeadForm } from './lead-form.js';
 import { STYLES } from './styles.js';
 
 const OBSERVED = [
@@ -54,6 +56,8 @@ export class TessAssistantElement extends BaseElement {
   #chat: ChatView | undefined;
   #conversationId: string | undefined;
   #enviando = false;
+  #viewer: TessViewer | undefined;
+  #leadForm: LeadForm | undefined;
 
   // `state` conserva su semántica de lectura actual: expone el estado
   // EFECTIVO del core (puede diferir de lo pedido, p. ej. bajo `offline`).
@@ -307,6 +311,8 @@ export class TessAssistantElement extends BaseElement {
   }
 
   destroy(): void {
+    this.#leadForm?.destroy();
+    this.#leadForm = undefined;
     this.#chat?.destroy();
     this.#chat = undefined;
     this.#unsubscribe?.();
@@ -374,6 +380,7 @@ export class TessAssistantElement extends BaseElement {
             // `success` vuelve solo a `idle`: lo gobierna tess-core.
             this.#core?.setState('success');
             this.#emit('tess:message', { role: 'assistant', content: completo });
+            this.#quizaPedirLead();
             break;
           }
 
@@ -394,8 +401,45 @@ export class TessAssistantElement extends BaseElement {
     }
   }
 
+  /** Solo tras la primera respuesta completa, y solo a prospectos. */
+  #quizaPedirLead(): void {
+    if (this.#leadForm || !this.#viewer || !this.#dialog) return;
+
+    const clave = `tess:lead-dismissed:${this.#config.projectId ?? ''}`;
+    let descartado = false;
+    try {
+      descartado = globalThis.localStorage?.getItem(clave) === '1';
+    } catch {
+      // Almacenamiento bloqueado: se muestra, que es el comportamiento útil.
+    }
+
+    if (!debeMostrarLead(this.#viewer, descartado)) return;
+
+    this.#leadForm = createLeadForm({
+      root: this.#dialog,
+      locale: this.#config.locale ?? 'es',
+      onSubmit: (input) => {
+        void this.#client.submitLead?.(input).then((r) => {
+          if (r) this.#emit('tess:lead', { leadId: r.leadId });
+        });
+      },
+      onDismiss: () => {
+        try {
+          globalThis.localStorage?.setItem(clave, '1');
+        } catch {
+          // El descarte es una preferencia local. Si no se puede guardar,
+          // volverá a aparecer en la próxima visita y no pasa nada.
+        }
+      },
+    });
+
+    this.#leadForm.mount();
+  }
+
   /** Recupera la conversación tras un recargado de página. */
   async #restaurar(): Promise<void> {
+    this.#viewer = await this.#client.getViewer?.();
+
     if (!this.#conversationId || !this.#chat) return;
 
     const previos = await this.#client.listMessages?.(this.#conversationId);

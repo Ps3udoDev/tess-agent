@@ -14,7 +14,6 @@ function clienteFalso(eventos: AssistantStreamEvent[]) {
       collectLeadsFromMembers: false,
     })),
     submitLead: vi.fn(async () => ({ leadId: 'l1' })),
-    // eslint-disable-next-line require-await
     async *sendMessage() {
       for (const e of eventos) yield e;
     },
