@@ -52,7 +52,7 @@ jobs:
         with:
           version: latest
       # Genera signing keys efímeras para que el CLI pueda arrancar sin secrets de producción.
-      - run: supabase gen signing-key --algorithm ES256
+      - run: node scripts/ensure-signing-keys.mjs
       # Levanta Postgres y aplica migrations/ + seed.sql de cero.
       # Detecta SQL roto antes de que llegue a la base remota.
       - run: supabase db start
