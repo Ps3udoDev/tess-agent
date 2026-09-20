@@ -5894,7 +5894,7 @@ El servidor emite `thinking` y `speaking`; el cliente traduce `completed` a `suc
 - Consumes: `createChatView()` (Tarea 24), `TessClientLike` (Tarea 5).
 - Produces: eventos `tess:message`; el diálogo deja de abrirse vacío.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-web-component/src/conversation.test.ts`:
 
@@ -6007,12 +6007,12 @@ describe('conversación', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test src/conversation.test.ts`
 Expected: FAIL, el diálogo sigue vacío.
 
-- [ ] **Step 3: Cablear la conversación**
+- [x] **Step 3: Cablear la conversación**
 
 En `packages/tess-web-component/src/element.ts`, añadir a los campos privados:
 
@@ -6151,13 +6151,13 @@ Y el import en `element.ts`:
 import { createChatView, type ChatView } from './chat.js';
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test && pnpm --filter @teams4soft/tess-web-component typecheck`
 Expected: PASS, incluidos los tres casos nuevos y los de F1 que no deben
 haberse roto.
 
-- [ ] **Step 5: Verificar que no hay tiempos escritos a mano**
+- [x] **Step 5: Verificar que no hay tiempos escritos a mano**
 
 ```bash
 grep -rn "1920\|2520" packages/tess-web-component/src packages/tess-client/src
@@ -6166,7 +6166,7 @@ grep -rn "1920\|2520" packages/tess-web-component/src packages/tess-client/src
 Esperado: **sin resultados**. Si aparece alguno, sustituirlo por un import de
 `DEFAULT_TRANSIENT_MS` de `@teams4soft/tess-core`.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/tess-web-component

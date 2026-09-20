@@ -27,6 +27,7 @@ export interface ChatView {
   beginStreaming(): void;
   pushDelta(texto: string): void;
   commitStreaming(): void;
+  commitStreamingAndRead(): string;
   setStatus(state: AssistantState | null): void;
   focusComposer(): void;
   destroy(): void;
@@ -108,6 +109,13 @@ export function createChatView(options: ChatViewOptions): ChatView {
       const completo = enCurso.textContent ?? '';
       enCurso.textContent = '';
       if (completo !== '') this.append('assistant', completo);
+    },
+
+    commitStreamingAndRead() {
+      const completo = enCurso.textContent ?? '';
+      enCurso.textContent = '';
+      if (completo !== '') this.append('assistant', completo);
+      return completo;
     },
 
     setStatus(state) {

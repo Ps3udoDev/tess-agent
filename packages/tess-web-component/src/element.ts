@@ -19,6 +19,7 @@ import {
   type TessStateDetail,
   type TessTheme,
 } from '@teams4soft/tess-types';
+import { createChatView, type ChatView } from './chat.js';
 import { labelsFor } from './labels.js';
 import { STYLES } from './styles.js';
 
@@ -50,6 +51,9 @@ export class TessAssistantElement extends BaseElement {
   #client: TessClientLike = this.#noopClient;
   #clientInjected = false;
   #publicKey: string | undefined;
+  #chat: ChatView | undefined;
+  #conversationId: string | undefined;
+  #enviando = false;
 
   // `state` conserva su semántica de lectura actual: expone el estado
   // EFECTIVO del core (puede diferir de lo pedido, p. ej. bajo `offline`).
@@ -272,15 +276,22 @@ export class TessAssistantElement extends BaseElement {
     this.#launcher?.setAttribute('aria-expanded', 'true');
     this.setAttribute('open', '');
     this.#rive?.greet();
-    // Si no hay nada focosable dentro (la cáscara de Fase 1), el foco entra
-    // en el propio diálogo (ver `dialog.tabIndex = -1` más arriba). Sin esto
-    // el foco se quedaría en el launcher y el Escape de abajo nunca llegaría
-    // a su listener, que está anclado al diálogo.
-    const focusTarget =
-      dialog.querySelector<HTMLElement>(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      ) ?? dialog;
-    focusTarget.focus();
+
+    if (!this.#chat) {
+      this.#chat = createChatView({
+        root: this.#dialog!,
+        locale: this.#config.locale ?? 'es',
+        onSend: (texto) => void this.#enviar(texto),
+      });
+      this.#chat.mount();
+
+      const saludo = (this.#client as { getGreeting?(): string | null }).getGreeting?.();
+      if (saludo) this.#chat.append('assistant', saludo);
+
+      void this.#restaurar();
+    }
+
+    this.#chat.focusComposer();
     this.dispatchEvent(new CustomEvent('tess:open', { bubbles: true, composed: true }));
   }
 
@@ -296,6 +307,8 @@ export class TessAssistantElement extends BaseElement {
   }
 
   destroy(): void {
+    this.#chat?.destroy();
+    this.#chat = undefined;
     this.#unsubscribe?.();
     this.#rive?.destroy();
     this.#core?.destroy();
@@ -306,6 +319,87 @@ export class TessAssistantElement extends BaseElement {
     this.#dialog = undefined;
     this.#fallback = undefined;
     if (this.shadowRoot) this.shadowRoot.replaceChildren();
+  }
+
+  /**
+   * Un turno completo.
+   *
+   * El servidor emite `thinking` y `speaking`. `completed` y `error` los
+   * traduce el cliente a los transitorios de tess-core: sus duraciones están
+   * en DEFAULT_TRANSIENT_MS y no se escriben aquí.
+   */
+  async #enviar(texto: string): Promise<void> {
+    if (this.#enviando || !this.#chat) return;
+    this.#enviando = true;
+
+    try {
+      this.#chat.append('user', texto);
+      this.#emit('tess:message', { role: 'user', content: texto });
+
+      if (!this.#conversationId) {
+        const creada = await this.#client.createConversation?.();
+        this.#conversationId = creada?.conversationId;
+      }
+
+      if (!this.#conversationId) {
+        this.#core?.setState('error');
+        this.#emit('tess:error', {
+          code: 'internal',
+          message: 'No se pudo abrir la conversación.',
+        });
+        return;
+      }
+
+      this.#chat.beginStreaming();
+
+      for await (const evento of this.#client.sendMessage({
+        conversationId: this.#conversationId,
+        text: texto,
+      })) {
+        switch (evento.event) {
+          case 'assistant.state':
+            if (isRequestedState(evento.data.state)) {
+              this.#core?.setState(evento.data.state);
+            }
+            this.#chat.setStatus(evento.data.state);
+            break;
+
+          case 'assistant.delta':
+            this.#chat.pushDelta(evento.data.text);
+            break;
+
+          case 'assistant.completed': {
+            const completo = this.#chat.commitStreamingAndRead();
+            this.#chat.setStatus(null);
+            // `success` vuelve solo a `idle`: lo gobierna tess-core.
+            this.#core?.setState('success');
+            this.#emit('tess:message', { role: 'assistant', content: completo });
+            break;
+          }
+
+          case 'assistant.error':
+            this.#chat.commitStreaming();
+            this.#chat.setStatus('error');
+            this.#core?.setState('error');
+            this.#emit('tess:error', { code: evento.data.code, message: evento.data.message });
+            break;
+
+          // assistant.source llega en F3. Se ignora sin romper nada.
+          default:
+            break;
+        }
+      }
+    } finally {
+      this.#enviando = false;
+    }
+  }
+
+  /** Recupera la conversación tras un recargado de página. */
+  async #restaurar(): Promise<void> {
+    if (!this.#conversationId || !this.#chat) return;
+
+    const previos = await this.#client.listMessages?.(this.#conversationId);
+    for (const m of previos ?? []) this.#chat.append(m.role, m.content);
   }
 
   #syncSize(): void {
@@ -332,14 +426,18 @@ export class TessAssistantElement extends BaseElement {
     }
   }
 
-  #emitError(code: string, error: Error): void {
+  #emit<T>(name: string, detail: T): void {
     this.dispatchEvent(
-      new CustomEvent<TessErrorDetail>('tess:error', {
-        detail: { code, message: error.message },
+      new CustomEvent<T>(name, {
+        detail,
         bubbles: true,
         composed: true,
       }),
     );
+  }
+
+  #emitError(code: string, error: Error): void {
+    this.#emit<TessErrorDetail>('tess:error', { code, message: error.message });
   }
 }
 
