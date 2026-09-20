@@ -1,4 +1,9 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'node:url';
+
+// Carga el .env de la raíz del monorepo para que los tests tengan las claves
+// de Supabase local sin duplicarlas.
+config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 process.env.SUPABASE_URL ??= 'http://127.0.0.1:54321';
 process.env.SUPABASE_ANON_KEY ??= 'sb_anon_key_test_dummy_min_20_chars';

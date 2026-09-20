@@ -4123,7 +4123,7 @@ git commit -m "feat(api): endpoint SSE de mensajes con persistencia parcial en e
 - Consumes: las migraciones `0006`, `0008` y `0009`.
 - Produces: nada que consuman otras tareas. Es una red de seguridad.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `services/api/src/rls.test.ts`:
 
@@ -4314,7 +4314,7 @@ describe('RLS: cruce de tenants', () => {
 });
 ```
 
-- [ ] **Step 2: Arrancar Supabase y ejecutar el test**
+- [x] **Step 2: Arrancar Supabase y ejecutar el test**
 
 ```bash
 pnpm supabase:start
@@ -4324,7 +4324,7 @@ pnpm --filter @teams4soft/api test src/rls.test.ts
 Expected: PASS, los seis casos. Si falla `signInAnonymously`, la Tarea 4 no
 aplicó `enable_anonymous_sign_ins = true` o falta reiniciar Supabase.
 
-- [ ] **Step 3: Añadir el script de RLS al paquete**
+- [x] **Step 3: Añadir el script de RLS al paquete**
 
 En `services/api/package.json`, en `scripts`:
 
@@ -4357,12 +4357,12 @@ import { config } from 'dotenv';
 config({ path: new URL('../../../.env', import.meta.url).pathname });
 ```
 
-- [ ] **Step 4: Verificar que la suite completa pasa**
+- [x] **Step 4: Verificar que la suite completa pasa**
 
 Run: `pnpm --filter @teams4soft/api test`
 Expected: PASS, incluyendo los tests de RLS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/api
