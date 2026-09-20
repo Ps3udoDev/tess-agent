@@ -53,6 +53,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
   // No se exporta. Solo lo usan las tres funciones de abajo.
   const serviceClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}` } },
   });
 
   app.decorate('userClient', (token: string): SupabaseClient =>
@@ -64,7 +65,10 @@ async function plugin(app: FastifyInstance): Promise<void> {
 
   // 1 de 3: todavía no hay JWT. Es el acto de crearlo.
   app.decorate('mintVisitorSession', async (): Promise<VisitorSession> => {
-    const { data, error } = await serviceClient.auth.signInAnonymously();
+    const mintClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await mintClient.auth.signInAnonymously();
 
     if (error || !data.session || !data.user) {
       throw new Error(`no se pudo acuñar la sesión: ${error?.message ?? 'sin sesión'}`);
@@ -119,7 +123,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
 
   // 4 de 4: se lee antes de que exista un JWT, en el acto de acuñarlo.
   app.decorate('readWidgetSettings', async (publicKey: string) => {
-    const { data } = await serviceClient
+    const { data, error } = await serviceClient
       .from('project_widget_settings')
       .select(
         'project_id, organization_id, allowed_origins, visitor_access, collect_leads_from_members, greeting',
@@ -127,6 +131,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
       .eq('public_key', publicKey)
       .maybeSingle();
 
+    if (error) app.log.error({ err: error }, 'error en readWidgetSettings');
     return data ?? null;
   });
 

@@ -6543,7 +6543,7 @@ git commit -m "feat(web-component): formulario de lead solo para prospectos con 
 - Consumes: el web component completo.
 - Produces: la superficie de validación manual del gate.
 
-- [ ] **Step 1: Añadir la pestaña de chat**
+- [x] **Step 1: Añadir la pestaña de chat**
 
 En `apps/demo-svelte/src/routes/+page.svelte`, conservar **intacto** el panel
 de pruebas de F1 —sigue siendo la superficie de validación visual de la fase
@@ -6606,7 +6606,7 @@ onMount(() => {
 });
 ```
 
-- [ ] **Step 2: Documentar las variables de la demo**
+- [x] **Step 2: Documentar las variables de la demo**
 
 Crear `apps/demo-svelte/.env.example`:
 
@@ -6617,7 +6617,7 @@ PUBLIC_TESS_API_URL=http://localhost:8080
 PUBLIC_TESS_PROJECT_ID=
 ```
 
-- [ ] **Step 3: Levantar todo y validar a mano**
+- [x] **Step 3: Levantar todo y validar a mano**
 
 ```bash
 pnpm supabase:start
@@ -6639,7 +6639,7 @@ Comprobar en el navegador, en `http://localhost:5173`:
 - Todo recorrible solo con teclado: Tab al launcher, Enter para abrir, Tab al
   campo, Enter para enviar, Escape para cerrar y el foco vuelve al launcher.
 
-- [ ] **Step 4: Verificar la secuencia SSE con `curl`**
+- [x] **Step 4: Verificar la secuencia SSE con `curl`**
 
 ```bash
 TOKEN=$(curl -s -X POST http://localhost:8080/v1/visitor-sessions \
@@ -6660,7 +6660,7 @@ curl -N -X POST "http://localhost:8080/v1/projects/$PROYECTO/conversations/$CONV
 
 Esperado: `thinking`, `speaking`, varios `assistant.delta` y `assistant.completed`.
 
-- [ ] **Step 5: Verificar que un origen no permitido es rechazado**
+- [x] **Step 5: Verificar que un origen no permitido es rechazado**
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' -X POST http://localhost:8080/v1/visitor-sessions \
@@ -6674,7 +6674,7 @@ docker exec -i supabase_db_tess psql -U postgres -d postgres -t -A -c \
 Esperado: `403`, y el conteo de usuarios anónimos **no aumenta** respecto a
 antes de la llamada.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/demo-svelte
