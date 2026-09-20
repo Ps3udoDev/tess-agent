@@ -1,4 +1,4 @@
-import { createNoopTessClient, createTessClient } from '@teams4soft/tess-client';
+import { createNoopTessClient, createTessClient, TessHttpError } from '@teams4soft/tess-client';
 import { createTessCore, type TessCore } from '@teams4soft/tess-core';
 import { mountTessRive, type TessRiveHandle } from '@teams4soft/tess-rive';
 import {
@@ -409,10 +409,14 @@ export class TessAssistantElement extends BaseElement {
       // rejection no manejado, no se emitía `tess:error`, el estado no
       // cambiaba y la burbuja se quedaba con `aria-busy="true"` mientras la
       // región viva anunciaba «Pensando» para siempre.
-      this.#chat.commitStreaming();
+      // `destroy()` pudo correr mientras el envío estaba en vuelo y dejar
+      // `#chat` en `undefined`: sin `?.` el propio manejador de errores
+      // lanzaría un `TypeError` y produciría otro rejection no manejado, la
+      // misma clase de fallo que este `catch` viene a evitar.
+      this.#chat?.commitStreaming();
       // `error` vuelve solo a `idle`: lo gobierna tess-core.
       this.#core?.setState('error');
-      this.#chat.setStatus('error');
+      this.#chat?.setStatus('error');
       this.#emit<TessErrorDetail>('tess:error', {
         code: 'internal',
         message: 'No pude enviar tu mensaje. Inténtalo de nuevo.',
@@ -492,6 +496,23 @@ export class TessAssistantElement extends BaseElement {
   }
 
   /**
+   * Descarta el id de conversación guardado.
+   *
+   * Para cuando la sesión se reacuñó (`auth.uid()` cambió) y el id ya no
+   * pertenece a este visitante: sin esto, `#restaurar` lo conservaba «a
+   * propósito», `#enviar` nunca llamaba a `createConversation` y el widget
+   * quedaba muerto para siempre con un 404 `project_not_found`.
+   */
+  #olvidarConversacion(): void {
+    this.#conversationId = undefined;
+    try {
+      globalThis.localStorage?.removeItem(this.#claveConversacion());
+    } catch {
+      // Navegación privada o almacenamiento bloqueado: no hay nada que borrar.
+    }
+  }
+
+  /**
    * Recupera viewer e historial tras un recargado de página.
    *
    * No rechaza nunca: `#enviar` la espera, y un fallo aquí —API caído, 401,
@@ -514,8 +535,14 @@ export class TessAssistantElement extends BaseElement {
       const previos = await this.#client.listMessages?.(this.#conversationId);
       for (const m of previos ?? []) this.#chat.append(m.role, m.content);
     } catch (error) {
-      // Se conserva el id: un fallo transitorio de red no debe descartar la
-      // conversación, que es justo lo que el gate pide recuperar.
+      // 404 (proyecto/conversación ya no existe) o 401 (sesión reacuñada,
+      // el id ya no es de este visitante): el id guardado no sirve, se
+      // descarta para que `#enviar` cree una conversación nueva. Cualquier
+      // otro fallo —5xx, error de red— es transitorio: se conserva el id,
+      // que es justo lo que el gate pide recuperar.
+      if (error instanceof TessHttpError && (error.status === 404 || error.status === 401)) {
+        this.#olvidarConversacion();
+      }
       this.#emitError('history', error as Error);
     }
   }

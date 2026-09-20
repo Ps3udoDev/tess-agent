@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TessHttpError } from '@teams4soft/tess-client';
 import { TAG_NAME, type AssistantStreamEvent } from '@teams4soft/tess-types';
 import './index.js';
 
@@ -285,6 +286,86 @@ describe('recuperación de la conversación', () => {
 
     // El siguiente envío sigue en la MISMA conversación.
     expect(cliente.createConversation).not.toHaveBeenCalled();
+
+    el.remove();
+  });
+
+  // Regresión: la sesión se reacuña (`auth.uid()` cambia) y el id guardado
+  // deja de pertenecer a este visitante. `listMessages` falla con 404 y,
+  // sin este descarte, el id se conservaba «a propósito» para siempre:
+  // `#enviar` nunca volvía a llamar a `createConversation` y el widget
+  // quedaba muerto con un 404 `project_not_found` en cada intento.
+  it('con un 404 al recuperar el historial, descarta el id y crea una conversación nueva', async () => {
+    localStorage.setItem(`tess:conversation:${PROYECTO}`, 'c-huerfana');
+
+    const cliente = {
+      createConversation: vi.fn(async () => ({ conversationId: 'c-nueva' })),
+      listMessages: vi.fn(async () => {
+        throw new TessHttpError('proyecto no encontrado', 404);
+      }),
+      getViewer: vi.fn(async () => ({
+        userId: 'u1',
+        isAnonymous: true,
+        isProjectMember: false,
+        lead: null,
+        collectLeadsFromMembers: false,
+      })),
+      async *sendMessage() {
+        yield { event: 'assistant.completed', data: { messageId: 'm1' } };
+      },
+    };
+
+    const el = await montar(cliente, PROYECTO);
+    await new Promise((r) => setTimeout(r, 10));
+
+    // El id huérfano ya no está: `#restaurar` lo borró al ver el 404.
+    expect(localStorage.getItem(`tess:conversation:${PROYECTO}`)).toBe(null);
+
+    enviar(el, 'hola');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(cliente.createConversation).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(`tess:conversation:${PROYECTO}`)).toBe('c-nueva');
+
+    el.remove();
+  });
+
+  // Un fallo transitorio (5xx, red) NO debe descartar el id: es justo el
+  // caso que el gate pide recuperar al recargar la página.
+  it('con un fallo de red al recuperar el historial, conserva el id guardado', async () => {
+    localStorage.setItem(`tess:conversation:${PROYECTO}`, 'c-previa');
+
+    const cliente = {
+      createConversation: vi.fn(async () => ({ conversationId: 'c-nueva' })),
+      listMessages: vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+      getViewer: vi.fn(async () => ({
+        userId: 'u1',
+        isAnonymous: true,
+        isProjectMember: false,
+        lead: null,
+        collectLeadsFromMembers: false,
+      })),
+      sendMessage: vi.fn(async function* () {
+        yield { event: 'assistant.completed', data: { messageId: 'm1' } };
+      }),
+    };
+
+    const el = await montar(cliente, PROYECTO);
+    await new Promise((r) => setTimeout(r, 10));
+
+    // El id sobrevive al fallo transitorio.
+    expect(localStorage.getItem(`tess:conversation:${PROYECTO}`)).toBe('c-previa');
+
+    enviar(el, 'hola');
+    await new Promise((r) => setTimeout(r, 10));
+
+    // No se crea una conversación nueva: sigue usándose la guardada.
+    expect(cliente.createConversation).not.toHaveBeenCalled();
+    expect(cliente.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ conversationId: 'c-previa' }),
+    );
 
     el.remove();
   });

@@ -18,11 +18,17 @@ import { parseSseStream } from './sse.js';
 import {
   createBrowserStorage,
   createSessionManager,
+  TessHttpError,
   type StoredSession,
   type TessSessionStorage,
 } from './session.js';
 
-export { createBrowserStorage, createMemoryStorage, type TessSessionStorage } from './session.js';
+export {
+  createBrowserStorage,
+  createMemoryStorage,
+  TessHttpError,
+  type TessSessionStorage,
+} from './session.js';
 export { parseSseStream } from './sse.js';
 
 export interface TessClientOptions {
@@ -80,15 +86,19 @@ export function createTessClient(options: TessClientOptions): TessClient {
       body: JSON.stringify({ refreshToken, publicKey: options.publicKey }),
     });
 
-    // Lanza a propósito: el gestor de sesión lo traduce en reacuñar, que es
-    // lo correcto cuando el refresh token ya no vale.
-    if (!res.ok) throw new Error(`no se pudo refrescar la sesión: ${res.status}`);
+    // Lanza a propósito, con el status: el gestor de sesión lo traduce en
+    // reacuñar SOLO cuando es 401 (refresh token ya no vale); cualquier otro
+    // código se propaga.
+    if (!res.ok) {
+      throw new TessHttpError(`no se pudo refrescar la sesión: ${res.status}`, res.status);
+    }
 
     return (await res.json()) as StoredSession;
   }
 
+  const storage = options.storage ?? createBrowserStorage();
   const sesion = createSessionManager({
-    storage: options.storage ?? createBrowserStorage(),
+    storage,
     key: `tess:session:${options.projectId}`,
     mint: pedirSesion,
     refresh: refrescarSesion,
@@ -129,7 +139,12 @@ export function createTessClient(options: TessClientOptions): TessClient {
   async function pedirJson<T>(ruta: string, init: RequestInit = {}): Promise<T> {
     const res = await fetchAutenticado(`${raiz}${ruta}`, init);
 
-    if (!res.ok) throw new Error(`${init.method ?? 'GET'} ${ruta}: ${res.status}`);
+    // Con el status adjunto: el web component lo usa para saber si un id de
+    // conversación guardado sigue siendo válido (404/401) o si el fallo es
+    // transitorio (5xx, red), sin que `TessClientLike` tenga que exponerlo.
+    if (!res.ok) {
+      throw new TessHttpError(`${init.method ?? 'GET'} ${ruta}: ${res.status}`, res.status);
+    }
     if (res.status === 204) return undefined as T;
 
     return (await res.json()) as T;
@@ -193,6 +208,15 @@ export function createTessClient(options: TessClientOptions): TessClient {
 
     clearSession() {
       sesion.clear();
+      // El id de conversación no es cosa de la sesión (lo escribe
+      // tess-web-component bajo `tess:conversation:<projectId>`), pero
+      // comparte proyecto y prefijo `tess:`: cerrar sesión sin borrarlo lo
+      // dejaría huérfano, igual que la sesión reacuñada de la Regresión 1.
+      try {
+        storage.remove(`tess:conversation:${options.projectId}`);
+      } catch {
+        // Almacenamiento bloqueado: ya está fuera de memoria, nada que hacer.
+      }
     },
   };
 }

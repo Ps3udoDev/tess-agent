@@ -250,6 +250,49 @@ describe('refresco de sesión', () => {
     expect(rutas[2]).toContain('/messages');
   });
 
+  // Regresión: el catch de `renovar()` reacuñaba ante CUALQUIER fallo del
+  // refresco, y el endpoint tiene rate limit por IP — perfectamente
+  // alcanzable detrás de un NAT compartido. Un 429 pasajero NO debe
+  // reacuñar identidad ni tocar `/v1/visitor-sessions`.
+  it('NO reacuña ante un 429 del refresco: propaga el fallo', async () => {
+    const rutas: string[] = [];
+
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      rutas.push(u);
+
+      if (u.endsWith('/v1/visitor-sessions/refresh')) {
+        return Response.json(
+          { code: 'rate_limited', message: 'Demasiadas peticiones.', retryable: true },
+          { status: 429, headers: { 'retry-after': '1' } },
+        );
+      }
+
+      return Response.json({
+        accessToken: 'acunado',
+        refreshToken: 'r-acunado',
+        expiresAt: Math.floor(Date.now() / 1000) + 3600,
+        userId: 'u-otro',
+        projectId: PROYECTO,
+        greeting: null,
+      });
+    }) as unknown as typeof fetch;
+
+    const cliente = clienteConFetch(fetchImpl, almacenamientoConSesionCaducada());
+
+    await expect(
+      (async () => {
+        for await (const _ of cliente.sendMessage({ conversationId: 'c1', text: 'hola' })) {
+          // consumir
+        }
+      })(),
+    ).rejects.toThrow();
+
+    expect(rutas[0]).toContain('/v1/visitor-sessions/refresh');
+    // No se reacuñó: nunca se pidió una sesión nueva.
+    expect(rutas.some((r) => r.endsWith('/v1/visitor-sessions'))).toBe(false);
+  });
+
   it('un 401 inesperado se reintenta UNA vez tras refrescar', async () => {
     const rutas: string[] = [];
     const bearers: string[] = [];
@@ -306,5 +349,23 @@ describe('refresco de sesión', () => {
     expect(rutas.filter((r) => r.endsWith('/v1/visitor-sessions/refresh'))).toHaveLength(1);
     expect(mensajesServidos).toBe(2);
     expect(eventos).toEqual([{ event: 'assistant.completed', data: { messageId: 'm1' } }]);
+  });
+});
+
+describe('clearSession', () => {
+  // El id de conversación lo escribe tess-web-component bajo
+  // `tess:conversation:<projectId>`, no `tess-client`, pero comparte
+  // almacenamiento y proyecto: cerrar sesión sin borrarlo lo dejaba
+  // huérfano, igual que la sesión reacuñada de la Regresión 1.
+  it('borra la sesión Y el id de conversación guardado', () => {
+    const storage = createMemoryStorage();
+    storage.set(CLAVE_SESION, JSON.stringify({ accessToken: 'a1', refreshToken: 'r1' }));
+    storage.set(`tess:conversation:${PROYECTO}`, 'c1');
+
+    const cliente = clienteConFetch(vi.fn(), storage);
+    cliente.clearSession?.();
+
+    expect(storage.get(CLAVE_SESION)).toBe(null);
+    expect(storage.get(`tess:conversation:${PROYECTO}`)).toBe(null);
   });
 });

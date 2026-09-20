@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMemoryStorage, createSessionManager } from './session.js';
+import { createMemoryStorage, createSessionManager, TessHttpError } from './session.js';
 
 const SESION = {
   accessToken: 'a1',
@@ -74,7 +74,7 @@ describe('createSessionManager', () => {
     expect(refresh).toHaveBeenCalledWith('r1');
   });
 
-  it('vuelve a acuñar si el refresco falla', async () => {
+  it('vuelve a acuñar si el refresh token ya no vale (401)', async () => {
     const storage = createMemoryStorage();
     storage.set('tess:session:p1', JSON.stringify({ ...SESION, expiresAt: 1_030 }));
 
@@ -84,12 +84,51 @@ describe('createSessionManager', () => {
       key: 'tess:session:p1',
       mint,
       refresh: vi.fn(async () => {
-        throw new Error('refresh token revocado');
+        throw new TessHttpError('refresh token revocado', 401);
       }),
     });
 
     expect(await gestor.getToken()).toBe('a9');
     expect(mint).toHaveBeenCalledTimes(1);
+  });
+
+  // Regresión: el catch de `renovar()` reacuñaba ante CUALQUIER excepción,
+  // así que un 429 pasajero (el endpoint de refresco tiene rate limit por
+  // IP) provocaba la misma pérdida de identidad que el 401 sí justifica.
+  it('propaga el error y NO reacuña ante un 429 del refresco', async () => {
+    const storage = createMemoryStorage();
+    storage.set('tess:session:p1', JSON.stringify({ ...SESION, expiresAt: 1_030 }));
+
+    const mint = mintFalso('9');
+    const gestor = createSessionManager({
+      storage,
+      key: 'tess:session:p1',
+      mint,
+      refresh: vi.fn(async () => {
+        throw new TessHttpError('demasiadas peticiones', 429);
+      }),
+    });
+
+    await expect(gestor.getToken()).rejects.toThrow('demasiadas peticiones');
+    expect(mint).not.toHaveBeenCalled();
+  });
+
+  it('propaga el error y NO reacuña ante un fallo de red del refresco', async () => {
+    const storage = createMemoryStorage();
+    storage.set('tess:session:p1', JSON.stringify({ ...SESION, expiresAt: 1_030 }));
+
+    const mint = mintFalso('9');
+    const gestor = createSessionManager({
+      storage,
+      key: 'tess:session:p1',
+      mint,
+      refresh: vi.fn(async () => {
+        throw new TypeError('Failed to fetch');
+      }),
+    });
+
+    await expect(gestor.getToken()).rejects.toThrow('Failed to fetch');
+    expect(mint).not.toHaveBeenCalled();
   });
 
   it('sigue funcionando si el almacenamiento lanza', async () => {

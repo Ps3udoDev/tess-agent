@@ -14,6 +14,25 @@
 /** Margen antes de la expiración. Renovar justo al filo deja carreras. */
 const MARGEN_SEGUNDOS = 60;
 
+/**
+ * Error HTTP con el código de estado adjunto.
+ *
+ * Sin esto, `renovar()` no podía distinguir un refresh token que ya no vale
+ * (401, el único caso en que reacuñar es correcto) de un fallo transitorio
+ * (429, 5xx, red), y reacuñaba ante cualquier excepción. También lo usa
+ * `tess-web-component` para decidir si descarta el id de conversación
+ * guardado sin ensanchar la forma pública de `TessClientLike`.
+ */
+export class TessHttpError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = 'TessHttpError';
+  }
+}
+
 export interface StoredSession {
   accessToken: string;
   refreshToken: string;
@@ -109,7 +128,13 @@ export function createSessionManager(options: SessionManagerOptions): SessionMan
         const renovada = await options.refresh(actual.refreshToken);
         guardar(renovada);
         return renovada.accessToken;
-      } catch {
+      } catch (error) {
+        // Solo reacuña cuando el fallo dice que el refresh token ya no vale
+        // (401). Un 429, un 5xx o un error de red son transitorios: si
+        // reacuñáramos ante cualquiera de ellos, un rate limit pasajero
+        // detrás de un NAT compartido reacuñaría identidad y con ella se
+        // perdería el historial y el lead, justo lo que esto evita.
+        if (!(error instanceof TessHttpError) || error.status !== 401) throw error;
         // El refresh token pudo ser revocado o haber expirado del todo.
         // Acuñar una nueva es preferible a dejar al visitante sin chat.
       }
