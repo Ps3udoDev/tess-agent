@@ -19,6 +19,8 @@ import type { ModelMessage } from '../agent/model-provider.js';
 
 const HEARTBEAT_MS = 15_000;
 const TITULO_MAX = 80;
+/** Los últimos 20 turnos, como pide el spec. */
+const MAX_CONTEXTO = 20;
 
 interface Params {
   projectId: string;
@@ -95,20 +97,32 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
           .eq('id', conversacion.id);
       }
 
-      const [{ data: historial }, { data: config }] = await Promise.all([
+      // 4. Contexto: los ÚLTIMOS turnos, no los primeros.
+      //
+      // Ordenar ascendente y limitar devuelve las PRIMERAS filas, así que en
+      // una conversación larga el modelo dejaba de ver lo reciente. Se piden
+      // descendente —que es lo que `limit` recorta por el lado correcto— y se
+      // reinvierte en memoria para que el modelo las reciba en orden
+      // cronológico. Se pide uno de más porque la última fila es el mensaje
+      // recién insertado, que `componerMensajes` añade por su cuenta.
+      const [{ data: recientes }, config] = await Promise.all([
         client
           .from('messages')
           .select('role, content')
           .eq('conversation_id', conversacion.id)
           .in('role', ['user', 'assistant'])
-          .order('created_at', { ascending: true })
-          .limit(40),
-        client
-          .from('assistant_configs')
-          .select('system_prompt')
-          .eq('project_id', proyecto.projectId)
-          .maybeSingle(),
+          .order('created_at', { ascending: false })
+          .limit(MAX_CONTEXTO + 1),
+        // El system_prompt se lee en el servidor con service_role: por el
+        // camino del visitante RLS devuelve cero filas (assistant_configs_select
+        // exige is_project_member) y el prompt base no llegaba al modelo. Ver
+        // readAssistantConfig en plugins/supabase.ts.
+        app.readAssistantConfig(proyecto.projectId),
       ]);
+
+      // `.slice(0, -1)` quita el mensaje del usuario recién insertado, que
+      // ahora sí es el último de la lista cronológica.
+      const historial = ((recientes ?? []) as ModelMessage[]).slice().reverse().slice(0, -1);
 
       // A partir de aquí el cuerpo es un stream: las cabeceras ya van con 200
       // y un error no puede viajar como código HTTP.
@@ -131,10 +145,14 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
         writer.send({ event: 'assistant.state', data: { state: 'thinking' } });
 
         const mensajes = componerMensajes({
-          systemPrompt: (config?.system_prompt as string | null) ?? null,
-          history: ((historial ?? []) as ModelMessage[]).slice(0, -1),
+          systemPrompt: config?.system_prompt ?? null,
+          history: historial,
           userMessage: parsed.data.content,
-          locale: parsed.data.locale ?? (conversacion.locale as string | undefined),
+          locale:
+            parsed.data.locale ??
+            (conversacion.locale as string | undefined) ??
+            config?.locale ??
+            undefined,
         });
 
         // 5 y 6.
@@ -174,15 +192,28 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
       } catch (error) {
         // El criterio es que el historial no mienta: si el usuario vio medio
         // párrafo, al recargar debe seguir viéndolo.
+        //
+        // Su propio try/catch: `insertAssistantMessage` lanza si Supabase
+        // devuelve error, y esa excepción escapaba de aquí. El `finally`
+        // cerraba el socket y el `assistant.error` no se emitía nunca, así que
+        // el cliente veía un stream truncado sin desenlace. El desenlace es lo
+        // que no puede faltar; perder el parcial es un mal menor.
         if (acumulado !== '') {
-          await app.insertAssistantMessage({
-            conversationId: conversacion.id,
-            organizationId: proyecto.organizationId,
-            projectId: proyecto.projectId,
-            content: acumulado,
-            incomplete: true,
-            latencyMs: Date.now() - inicio,
-          });
+          try {
+            await app.insertAssistantMessage({
+              conversationId: conversacion.id,
+              organizationId: proyecto.organizationId,
+              projectId: proyecto.projectId,
+              content: acumulado,
+              incomplete: true,
+              latencyMs: Date.now() - inicio,
+            });
+          } catch (fallo) {
+            app.log.error(
+              { err: (fallo as Error).message },
+              'no se pudo persistir la respuesta parcial',
+            );
+          }
         }
 
         // El detalle va al log con el trace_id, no al navegador.
