@@ -1,4 +1,4 @@
-import { createNoopTessClient } from '@teams4soft/tess-client';
+import { createNoopTessClient, createTessClient } from '@teams4soft/tess-client';
 import { createTessCore, type TessCore } from '@teams4soft/tess-core';
 import { mountTessRive, type TessRiveHandle } from '@teams4soft/tess-rive';
 import {
@@ -22,7 +22,16 @@ import {
 import { labelsFor } from './labels.js';
 import { STYLES } from './styles.js';
 
-const OBSERVED = ['state', 'theme', 'size', 'position', 'api-url', 'locale'] as const;
+const OBSERVED = [
+  'state',
+  'theme',
+  'size',
+  'position',
+  'api-url',
+  'project-id',
+  'public-key',
+  'locale',
+] as const;
 
 const BaseElement =
   typeof HTMLElement !== 'undefined' ? HTMLElement : (class {} as unknown as typeof HTMLElement);
@@ -37,7 +46,10 @@ export class TessAssistantElement extends BaseElement {
   #fallback: HTMLSpanElement | undefined;
   #unsubscribe: (() => void) | undefined;
   #config: TessAssistantConfig = {};
-  #client: TessClientLike = createNoopTessClient();
+  readonly #noopClient: TessClientLike = createNoopTessClient();
+  #client: TessClientLike = this.#noopClient;
+  #clientInjected = false;
+  #publicKey: string | undefined;
 
   // `state` conserva su semántica de lectura actual: expone el estado
   // EFECTIVO del core (puede diferir de lo pedido, p. ej. bajo `offline`).
@@ -88,12 +100,37 @@ export class TessAssistantElement extends BaseElement {
    * backend real.
    */
   setClient(client: TessClientLike): void {
+    this.#clientInjected = true;
     this.#client = client;
   }
 
   /** Cliente actualmente inyectado (noop por defecto en Fase 1). */
   getClient(): TessClientLike {
     return this.#client;
+  }
+
+  /** Solo para tests: indica si el cliente es el real o el noop. */
+  hasRealClient(): boolean {
+    return this.#client !== this.#noopClient;
+  }
+
+  /**
+   * Construye el cliente real cuando están los tres datos.
+   *
+   * `setClient()` tiene prioridad: si el integrador inyectó el suyo, el
+   * componente no construye nada.
+   */
+  #maybeCreateClient(): void {
+    if (this.#clientInjected) return;
+
+    const { apiUrl, projectId } = this.#config;
+    if (!apiUrl || !projectId || !this.#publicKey) return;
+
+    this.#client = createTessClient({
+      apiUrl,
+      projectId,
+      publicKey: this.#publicKey,
+    });
   }
 
   connectedCallback(): void {
@@ -186,6 +223,32 @@ export class TessAssistantElement extends BaseElement {
   }
 
   attributeChangedCallback(name: string, _old: string | null, value: string | null): void {
+    if (name === 'api-url') {
+      if (value === null) delete this.#config.apiUrl;
+      else this.#config.apiUrl = value;
+      this.#maybeCreateClient();
+      return;
+    }
+    if (name === 'project-id') {
+      if (value === null) delete this.#config.projectId;
+      else this.#config.projectId = value;
+      this.#maybeCreateClient();
+      return;
+    }
+    if (name === 'public-key') {
+      this.#publicKey = value ?? undefined;
+      this.#maybeCreateClient();
+      return;
+    }
+    if (name === 'locale') {
+      if (value === null) delete this.#config.locale;
+      else this.#config.locale = value;
+      const labels = labelsFor(value);
+      this.#launcher?.setAttribute('aria-label', labels.launcher);
+      this.#dialog?.setAttribute('aria-label', labels.dialog);
+      return;
+    }
+
     if (!this.#core) return;
     if (name === 'state' && value !== null) {
       if (isRequestedState(value)) this.#core.setState(value);
@@ -194,17 +257,6 @@ export class TessAssistantElement extends BaseElement {
     if (name === 'size') this.#syncSize();
     if (name === 'theme') this.#syncTheme();
     if (name === 'position') this.#syncPosition();
-    if (name === 'api-url') {
-      if (value === null) delete this.#config.apiUrl;
-      else this.#config.apiUrl = value;
-    }
-    if (name === 'locale') {
-      if (value === null) delete this.#config.locale;
-      else this.#config.locale = value;
-      const labels = labelsFor(value);
-      this.#launcher?.setAttribute('aria-label', labels.launcher);
-      this.#dialog?.setAttribute('aria-label', labels.dialog);
-    }
   }
 
   /**

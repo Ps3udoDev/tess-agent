@@ -5365,7 +5365,7 @@ git commit -m "feat(client): createTessClient con SSE, sesion de visitante y lea
 - Consumes: `createTessClient()` (Tarea 22).
 - Produces: atributos `project-id` y `public-key`; el componente construye su cliente cuando los tres datos están presentes.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-web-component/src/config.test.ts`:
 
@@ -5435,12 +5435,12 @@ describe('configuración del cliente', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test src/config.test.ts`
 Expected: FAIL, `project-id` no está observado.
 
-- [ ] **Step 3: Ampliar los atributos observados**
+- [x] **Step 3: Ampliar los atributos observados**
 
 En `packages/tess-web-component/src/element.ts`, línea 25:
 
@@ -5535,12 +5535,12 @@ import {
 } from '@teams4soft/tess-client';
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test src/config.test.ts && pnpm --filter @teams4soft/tess-web-component typecheck`
 Expected: PASS, los cuatro casos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/tess-web-component
