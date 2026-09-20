@@ -4385,7 +4385,7 @@ git commit -m "test(api): tests de RLS contra Supabase local para visitante y cr
 - Consumes: `AssistantStreamEvent` de `@teams4soft/tess-types`.
 - Produces: `parseSseStream(stream: ReadableStream<Uint8Array>): AsyncIterable<AssistantStreamEvent>`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-client/src/sse.test.ts`:
 
@@ -4492,12 +4492,12 @@ describe('parseSseStream', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-client test`
 Expected: FAIL, no se resuelve `./sse.js`.
 
-- [ ] **Step 3: Escribir el parser**
+- [x] **Step 3: Escribir el parser**
 
 Crear `packages/tess-client/src/sse.ts`:
 
@@ -4581,12 +4581,12 @@ export async function* parseSseStream(
 }
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-client test`
 Expected: PASS, los seis casos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/tess-client
