@@ -5564,7 +5564,7 @@ git commit -m "feat(web-component): atributos project-id y public-key que constr
 - Consumes: `TessClientLike`, `DEFAULT_TRANSIENT_MS` de `@teams4soft/tess-core`.
 - Produces: `createChatView(options): ChatView` con `mount()`, `append()`, `beginStreaming()`, `pushDelta()`, `commitStreaming()`, `destroy()`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-web-component/src/chat.test.ts`:
 
@@ -5677,12 +5677,12 @@ describe('createChatView', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test src/chat.test.ts`
 Expected: FAIL, no se resuelve `./chat.js`.
 
-- [ ] **Step 3: Escribir la vista de chat**
+- [x] **Step 3: Escribir la vista de chat**
 
 Crear `packages/tess-web-component/src/chat.ts`:
 
@@ -5819,7 +5819,7 @@ export function createChatView(options: ChatViewOptions): ChatView {
 }
 ```
 
-- [ ] **Step 4: Añadir las cadenas**
+- [x] **Step 4: Añadir las cadenas**
 
 Añadir al final de `packages/tess-web-component/src/labels.ts`:
 
@@ -5866,12 +5866,12 @@ Añadir el import de `AssistantState` al inicio de `labels.ts` si no estuviera:
 import type { AssistantState } from '@teams4soft/tess-types';
 ```
 
-- [ ] **Step 5: Ejecutar los tests**
+- [x] **Step 5: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-web-component test src/chat.test.ts`
 Expected: PASS, los seis casos.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add packages/tess-web-component
