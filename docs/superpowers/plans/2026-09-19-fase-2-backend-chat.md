@@ -4924,7 +4924,7 @@ git commit -m "feat(client): gestion de sesion con refresco, reacuno y almacenam
 - Consumes: `parseSseStream()` (Tarea 20), `createSessionManager()` (Tarea 21), `TessClientLike` (Tarea 5).
 - Produces: `createTessClient(options): TessClientLike & { getGreeting(): string | null }`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-client/src/client.test.ts`:
 
@@ -5090,12 +5090,12 @@ describe('createTessClient', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-client test src/client.test.ts`
 Expected: FAIL, `createTessClient` no existe.
 
-- [ ] **Step 3: Escribir el cliente**
+- [x] **Step 3: Escribir el cliente**
 
 Sustituir el contenido de `packages/tess-client/src/index.ts` por:
 
@@ -5298,7 +5298,7 @@ export function createNoopTessClient(): TessClientLike {
 }
 ```
 
-- [ ] **Step 4: Corregir el cuerpo del envío**
+- [x] **Step 4: Corregir el cuerpo del envío**
 
 El `JSON.stringify({ text: undefined, content: input.text })` del Step 3 tiene
 un campo muerto. Sustituirlo por:
@@ -5307,12 +5307,12 @@ un campo muerto. Sustituirlo por:
         body: JSON.stringify({ content: input.text }),
 ```
 
-- [ ] **Step 5: Ejecutar los tests**
+- [x] **Step 5: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-client test && pnpm --filter @teams4soft/tess-client typecheck && pnpm --filter @teams4soft/tess-client build`
 Expected: PASS, los cuatro casos.
 
-- [ ] **Step 6: Documentar el riesgo en el README**
+- [x] **Step 6: Documentar el riesgo en el README**
 
 Crear `packages/tess-client/README.md`:
 
@@ -5341,7 +5341,7 @@ tu propio `getToken` y gestiona la sesión con cookies seguras del host.
 `localStorage` es la elección correcta para una landing pública, no para todo.
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add packages/tess-client
