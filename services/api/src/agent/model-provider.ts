@@ -7,7 +7,6 @@
  */
 import type { TessEnv } from '../env.js';
 import { createFakeModelProvider } from './model-provider.fake.js';
-import { createGatewayModelProvider } from './model-provider.gateway.js';
 
 export interface ModelMessage {
   role: 'system' | 'user' | 'assistant';
@@ -26,14 +25,10 @@ export interface ModelProvider {
 /**
  * Selector por entorno.
  *
- * CI corre siempre con `fake`. La conversación real contra AI Gateway es un
- * smoke test manual aparte, con MODEL_PROVIDER=gateway.
+ * F3 retiró Vercel AI Gateway. La rama de OpenRouter la añade la Tarea 16,
+ * cuando exista el proveedor al que cambiarse; hasta entonces `fake` es el
+ * único cableado, que es lo que CI usa de todos modos.
  */
-export function createModelProvider(env: TessEnv): ModelProvider {
-  return env.MODEL_PROVIDER === 'gateway'
-    ? createGatewayModelProvider({
-        model: env.MODEL_NAME,
-        apiKey: env.AI_GATEWAY_API_KEY,
-      })
-    : createFakeModelProvider();
+export function createModelProvider(_env: TessEnv): ModelProvider {
+  return createFakeModelProvider();
 }
