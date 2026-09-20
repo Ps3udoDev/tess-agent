@@ -54,3 +54,6 @@ pnpm-debug.log*
 
 # Clave de firma JWT del Supabase local. Nunca se commitea.
 supabase/signing_keys.json
+
+# Workspace de subagent-driven-development (scratch, no versionado)
+.superpowers/
