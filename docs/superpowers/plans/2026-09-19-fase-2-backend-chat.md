@@ -4607,7 +4607,7 @@ git commit -m "feat(client): parser SSE tolerante a tramas partidas y eventos de
 - Consumes: nada del monorepo.
 - Produces: `TessSessionStorage`, `createMemoryStorage()`, `createBrowserStorage()`, `createSessionManager(options)` con `getToken()`, `clear()`.
 
-- [ ] **Step 1: Escribir el test que falla**
+- [x] **Step 1: Escribir el test que falla**
 
 Crear `packages/tess-client/src/session.test.ts`:
 
@@ -4757,12 +4757,12 @@ describe('createSessionManager', () => {
 });
 ```
 
-- [ ] **Step 2: Ejecutar el test para verificar que falla**
+- [x] **Step 2: Ejecutar el test para verificar que falla**
 
 Run: `pnpm --filter @teams4soft/tess-client test src/session.test.ts`
 Expected: FAIL, no se resuelve `./session.js`.
 
-- [ ] **Step 3: Escribir el gestor de sesión**
+- [x] **Step 3: Escribir el gestor de sesión**
 
 Crear `packages/tess-client/src/session.ts`:
 
@@ -4897,12 +4897,12 @@ export function createSessionManager(
 }
 ```
 
-- [ ] **Step 4: Ejecutar los tests**
+- [x] **Step 4: Ejecutar los tests**
 
 Run: `pnpm --filter @teams4soft/tess-client test src/session.test.ts`
 Expected: PASS, los seis casos.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add packages/tess-client
