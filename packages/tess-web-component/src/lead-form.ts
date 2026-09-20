@@ -18,7 +18,11 @@ export function debeMostrarLead(viewer: TessViewer, descartado: boolean): boolea
 export interface LeadFormOptions {
   root: HTMLElement | ShadowRoot;
   locale: string;
-  onSubmit(input: LeadInput): void;
+  /**
+   * Puede devolver una promesa: el formulario NO se retira del DOM hasta que
+   * resuelva. Si falla, se lo dice a la persona y conserva lo que escribió.
+   */
+  onSubmit(input: LeadInput): void | Promise<void>;
   onDismiss(): void;
 }
 
@@ -36,6 +40,7 @@ const TEXTOS = {
     ahoraNo: 'Ahora no',
     privacidad:
       'Usaremos tus datos solo para responderte. Consulta nuestra política de privacidad.',
+    fallo: 'No pudimos guardar tus datos. Inténtalo de nuevo.',
   },
   en: {
     titulo: 'Want us to get in touch?',
@@ -44,6 +49,7 @@ const TEXTOS = {
     enviar: 'Send',
     ahoraNo: 'Not now',
     privacidad: 'We will use your details only to reply. See our privacy policy.',
+    fallo: 'We could not save your details. Please try again.',
   },
 };
 
@@ -80,7 +86,14 @@ export function createLeadForm(options: LeadFormOptions): LeadForm {
   privacidad.setAttribute('part', 'lead-privacy');
   privacidad.textContent = t.privacidad;
 
-  function alEnviar(evento: Event): void {
+  // `role="alert"` para que el fallo se anuncie: quien usa lector de pantalla
+  // no vería de otro modo que el envío no salió.
+  const fallo = document.createElement('p');
+  fallo.setAttribute('part', 'lead-error');
+  fallo.setAttribute('role', 'alert');
+  fallo.hidden = true;
+
+  async function alEnviar(evento: Event): Promise<void> {
     evento.preventDefault();
 
     const input: LeadInput = {};
@@ -104,8 +117,24 @@ export function createLeadForm(options: LeadFormOptions): LeadForm {
 
     if (Object.keys(attribution).length > 0) input.attribution = attribution;
 
-    options.onSubmit(input);
-    caja.remove();
+    // El formulario se retiraba del DOM ANTES de saber si el lead se había
+    // guardado. Ahora espera, y si falla conserva lo escrito y lo dice.
+    fallo.hidden = true;
+    enviar.disabled = true;
+
+    try {
+      await options.onSubmit(input);
+      caja.remove();
+    } catch {
+      fallo.textContent = t.fallo;
+      fallo.hidden = false;
+      enviar.disabled = false;
+    }
+  }
+
+  // El listener necesita un nombre estable para poder retirarse en destroy().
+  function alEnviarSync(evento: Event): void {
+    void alEnviar(evento);
   }
 
   function alDescartar(): void {
@@ -116,14 +145,14 @@ export function createLeadForm(options: LeadFormOptions): LeadForm {
   return {
     mount() {
       form.append(nombre, correo, enviar, descartar);
-      caja.append(titulo, form, privacidad);
+      caja.append(titulo, form, fallo, privacidad);
       options.root.append(caja);
-      form.addEventListener('submit', alEnviar);
+      form.addEventListener('submit', alEnviarSync);
       descartar.addEventListener('click', alDescartar);
     },
 
     destroy() {
-      form.removeEventListener('submit', alEnviar);
+      form.removeEventListener('submit', alEnviarSync);
       descartar.removeEventListener('click', alDescartar);
       caja.remove();
     },

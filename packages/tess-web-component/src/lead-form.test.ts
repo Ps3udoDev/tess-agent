@@ -76,6 +76,67 @@ describe('createLeadForm', () => {
     root.remove();
   });
 
+  it('no se retira del DOM hasta que el envío resuelve', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+
+    let resolver: () => void = () => {};
+    const enVuelo = new Promise<void>((r) => {
+      resolver = r;
+    });
+
+    createLeadForm({
+      root,
+      locale: 'es',
+      onSubmit: () => enVuelo,
+      onDismiss: vi.fn(),
+    }).mount();
+
+    root.querySelector<HTMLInputElement>('input[type="email"]')!.value = 'ana@example.com';
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await Promise.resolve();
+
+    // Todavía sin confirmar: el formulario sigue ahí.
+    expect(root.querySelector('[part="lead"]')).not.toBeNull();
+
+    resolver();
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(root.querySelector('[part="lead"]')).toBeNull();
+
+    root.remove();
+  });
+
+  it('si el envío falla, lo dice y conserva lo escrito', async () => {
+    const root = document.createElement('div');
+    document.body.append(root);
+
+    createLeadForm({
+      root,
+      locale: 'es',
+      onSubmit: async () => {
+        throw new Error('Failed to fetch');
+      },
+      onDismiss: vi.fn(),
+    }).mount();
+
+    const correo = root.querySelector<HTMLInputElement>('input[type="email"]')!;
+    correo.value = 'ana@example.com';
+    root.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
+    await new Promise((r) => setTimeout(r, 0));
+
+    // Sigue en el DOM, con el correo intacto y el fallo anunciado.
+    expect(root.querySelector('[part="lead"]')).not.toBeNull();
+    expect(correo.value).toBe('ana@example.com');
+
+    const aviso = root.querySelector<HTMLElement>('[part="lead-error"]')!;
+    expect(aviso.hidden).toBe(false);
+    expect(aviso.textContent).toBeTruthy();
+    expect(aviso.getAttribute('role')).toBe('alert');
+
+    root.remove();
+  });
+
   it('incluye la nota de privacidad', () => {
     const root = document.createElement('div');
     document.body.append(root);

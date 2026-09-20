@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TAG_NAME, type AssistantStreamEvent } from '@teams4soft/tess-types';
 import './index.js';
 
@@ -20,16 +20,43 @@ function clienteFalso(eventos: AssistantStreamEvent[]) {
   };
 }
 
-async function montarConCliente(eventos: AssistantStreamEvent[]) {
-  const el = document.createElement(TAG_NAME) as HTMLElement & {
-    setClient(c: unknown): void;
-    openChat(): void;
-  };
+type ElementoTess = HTMLElement & {
+  setClient(c: unknown): void;
+  openChat(): void;
+};
+
+async function montar(cliente: unknown, projectId?: string): Promise<ElementoTess> {
+  const el = document.createElement(TAG_NAME) as ElementoTess;
+  if (projectId) el.setAttribute('project-id', projectId);
   document.body.append(el);
-  el.setClient(clienteFalso(eventos));
+  el.setClient(cliente);
   el.openChat();
   await new Promise((r) => setTimeout(r, 0));
   return el;
+}
+
+async function montarConCliente(eventos: AssistantStreamEvent[]) {
+  return montar(clienteFalso(eventos));
+}
+
+// El id de conversación se persiste: sin limpiar, un test arrastraría el de
+// otro y `createConversation` no llegaría a llamarse.
+beforeEach(() => {
+  localStorage.clear();
+});
+
+/** Escucha desde el documento: `tess:error` burbujea y es `composed`. */
+function capturarErrores(): string[] {
+  const vistos: string[] = [];
+  document.addEventListener('tess:error', (e) => {
+    vistos.push((e as CustomEvent<{ code: string }>).detail.code);
+  });
+  return vistos;
+}
+
+function enviar(el: ElementoTess, texto: string): void {
+  el.shadowRoot!.querySelector('textarea')!.value = texto;
+  el.shadowRoot!.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }));
 }
 
 describe('conversación', () => {
@@ -93,6 +120,171 @@ describe('conversación', () => {
     await new Promise((r) => setTimeout(r, 10));
 
     expect(errores).toContain('model_unavailable');
+
+    el.remove();
+  });
+});
+
+describe('fallos del cliente', () => {
+  const VIEWER = {
+    userId: 'u1',
+    isAnonymous: true,
+    isProjectMember: false,
+    lead: null,
+    collectLeadsFromMembers: false,
+  };
+
+  it('un cliente que lanza emite tess:error y NO se queda en «Pensando»', async () => {
+    // Un `Origin` rechazado, un 401 o el API caído: la promesa revienta y no
+    // llega ningún `assistant.error`.
+    const el = await montar({
+      createConversation: vi.fn(async () => ({ conversationId: 'c1' })),
+      listMessages: vi.fn(async () => []),
+      getViewer: vi.fn(async () => VIEWER),
+      // eslint-disable-next-line require-yield -- lanza antes del primer yield.
+      async *sendMessage() {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+
+    const errores: string[] = [];
+    el.addEventListener('tess:error', (e) => {
+      errores.push((e as CustomEvent<{ code: string }>).detail.code);
+    });
+
+    enviar(el, 'hola');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(errores).toContain('internal');
+
+    // La región viva no se queda anunciando «Pensando» para siempre.
+    const estado = el.shadowRoot!.querySelector('[part="status"]')!;
+    expect(estado.textContent).not.toBe('Pensando');
+    expect(estado.textContent).toBe('Ocurrió un error');
+
+    // Y la burbuja en curso se confirmó: nada queda con aria-busy colgando.
+    expect(el.shadowRoot!.querySelector('[part="streaming"]')!.textContent).toBe('');
+
+    el.remove();
+  });
+
+  it('si createConversation lanza, también emite tess:error', async () => {
+    const el = await montar({
+      createConversation: vi.fn(async () => {
+        throw new Error('401');
+      }),
+      listMessages: vi.fn(async () => []),
+      getViewer: vi.fn(async () => VIEWER),
+      async *sendMessage() {
+        yield { event: 'assistant.delta', data: { text: 'no debería llegar' } };
+      },
+    });
+
+    const errores: string[] = [];
+    el.addEventListener('tess:error', (e) => {
+      errores.push((e as CustomEvent<{ code: string }>).detail.code);
+    });
+
+    enviar(el, 'hola');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(errores).toContain('internal');
+
+    el.remove();
+  });
+
+  it('si getViewer lanza, el chat sigue funcionando y se avisa', async () => {
+    // Antes `#viewer` se quedaba undefined y el formulario de lead no
+    // aparecía jamás, sin que nadie se enterara.
+    //
+    // El listener va ANTES de montar: `getViewer()` se llama al abrir.
+    const errores = capturarErrores();
+
+    const el = await montar({
+      createConversation: vi.fn(async () => ({ conversationId: 'c1' })),
+      listMessages: vi.fn(async () => []),
+      getViewer: vi.fn(async () => {
+        throw new Error('API caído');
+      }),
+      async *sendMessage() {
+        yield { event: 'assistant.delta', data: { text: 'ok' } };
+        yield { event: 'assistant.completed', data: { messageId: 'm1' } };
+      },
+    });
+
+    await new Promise((r) => setTimeout(r, 10));
+    expect(errores).toContain('viewer');
+
+    enviar(el, 'hola');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(el.shadowRoot!.querySelector('[part="messages"]')!.textContent).toContain('ok');
+
+    el.remove();
+  });
+});
+
+describe('recuperación de la conversación', () => {
+  const PROYECTO = '11111111-1111-1111-1111-111111111111';
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('guarda el id de la conversación al crearla', async () => {
+    const el = await montar(
+      clienteFalso([{ event: 'assistant.delta', data: { text: 'ok' } }]),
+      PROYECTO,
+    );
+
+    enviar(el, 'hola');
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(localStorage.getItem(`tess:conversation:${PROYECTO}`)).toBe('c1');
+
+    el.remove();
+  });
+
+  it('al reabrir, repinta el historial y NO crea otra conversación', async () => {
+    localStorage.setItem(`tess:conversation:${PROYECTO}`, 'c-previa');
+
+    const cliente = {
+      createConversation: vi.fn(async () => ({ conversationId: 'c-nueva' })),
+      listMessages: vi.fn(async () => [
+        { id: 'm1', role: 'user' as const, content: 'pregunta de ayer', createdAt: '2026-09-18' },
+        {
+          id: 'm2',
+          role: 'assistant' as const,
+          content: 'respuesta de ayer',
+          createdAt: '2026-09-18',
+        },
+      ]),
+      getViewer: vi.fn(async () => ({
+        userId: 'u1',
+        isAnonymous: true,
+        isProjectMember: false,
+        lead: null,
+        collectLeadsFromMembers: false,
+      })),
+      async *sendMessage() {
+        yield { event: 'assistant.completed', data: { messageId: 'm3' } };
+      },
+    };
+
+    const el = await montar(cliente, PROYECTO);
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(cliente.listMessages).toHaveBeenCalledWith('c-previa');
+
+    const log = el.shadowRoot!.querySelector('[part="messages"]')!;
+    expect(log.textContent).toContain('pregunta de ayer');
+    expect(log.textContent).toContain('respuesta de ayer');
+
+    enviar(el, 'y hoy?');
+    await new Promise((r) => setTimeout(r, 10));
+
+    // El siguiente envío sigue en la MISMA conversación.
+    expect(cliente.createConversation).not.toHaveBeenCalled();
 
     el.remove();
   });
