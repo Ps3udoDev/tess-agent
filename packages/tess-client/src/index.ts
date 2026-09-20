@@ -66,30 +66,68 @@ export function createTessClient(options: TessClientOptions): TessClient {
     return cuerpo;
   }
 
+  /**
+   * Canjea el refresh token contra el API.
+   *
+   * Sin esto, al expirar el access token se reacuñaba una sesión: otro
+   * `auth.uid()`, y el visitante perdía su historial y su lead a la hora. Es
+   * lo contrario de la decisión central del spec.
+   */
+  async function refrescarSesion(refreshToken: string): Promise<StoredSession> {
+    const res = await fetchImpl(`${base}/v1/visitor-sessions/refresh`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ refreshToken, publicKey: options.publicKey }),
+    });
+
+    // Lanza a propósito: el gestor de sesión lo traduce en reacuñar, que es
+    // lo correcto cuando el refresh token ya no vale.
+    if (!res.ok) throw new Error(`no se pudo refrescar la sesión: ${res.status}`);
+
+    return (await res.json()) as StoredSession;
+  }
+
   const sesion = createSessionManager({
     storage: options.storage ?? createBrowserStorage(),
     key: `tess:session:${options.projectId}`,
     mint: pedirSesion,
-    // F2 no expone refresco propio: se reacuña. El endpoint de refresh de
-    // Supabase entra cuando el widget necesite sesiones de más de una hora.
-    refresh: async () => {
-      throw new Error('sin refresco en F2');
-    },
+    refresh: refrescarSesion,
   });
 
   async function token(): Promise<string> {
     return options.getToken ? await options.getToken() : await sesion.getToken();
   }
 
-  async function pedirJson<T>(ruta: string, init: RequestInit = {}): Promise<T> {
-    const res = await fetchImpl(`${raiz}${ruta}`, {
+  /**
+   * Un 401 inesperado se reintenta UNA vez tras refrescar.
+   *
+   * Si el host provee su propia sesión no hay nada que renovar aquí: el 401 es
+   * suyo y se devuelve tal cual.
+   */
+  async function fetchAutenticado(url: string, init: RequestInit): Promise<Response> {
+    const cabeceras = {
+      'content-type': 'application/json',
+      ...(init.headers as Record<string, string> | undefined),
+    };
+
+    const res = await fetchImpl(url, {
       ...init,
-      headers: {
-        'content-type': 'application/json',
-        Authorization: `Bearer ${await token()}`,
-        ...(init.headers as Record<string, string>),
-      },
+      headers: { ...cabeceras, Authorization: `Bearer ${await token()}` },
     });
+
+    if (res.status !== 401 || options.getToken) return res;
+
+    // `renew()` refresca si puede y reacuña si el refresh token ya no vale.
+    const renovado = await sesion.renew();
+
+    return fetchImpl(url, {
+      ...init,
+      headers: { ...cabeceras, Authorization: `Bearer ${renovado}` },
+    });
+  }
+
+  async function pedirJson<T>(ruta: string, init: RequestInit = {}): Promise<T> {
+    const res = await fetchAutenticado(`${raiz}${ruta}`, init);
 
     if (!res.ok) throw new Error(`${init.method ?? 'GET'} ${ruta}: ${res.status}`);
     if (res.status === 204) return undefined as T;
@@ -101,12 +139,8 @@ export function createTessClient(options: TessClientOptions): TessClient {
     getGreeting: () => sesion.getSession()?.greeting ?? null,
 
     async *sendMessage(input: SendMessageInput): AsyncIterable<AssistantStreamEvent> {
-      const res = await fetchImpl(`${raiz}/conversations/${input.conversationId}/messages`, {
+      const res = await fetchAutenticado(`${raiz}/conversations/${input.conversationId}/messages`, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: `Bearer ${await token()}`,
-        },
         body: JSON.stringify({ content: input.text }),
         ...(input.signal ? { signal: input.signal } : {}),
       });

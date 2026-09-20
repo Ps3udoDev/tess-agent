@@ -55,6 +55,13 @@ export interface SessionManagerOptions {
 
 export interface SessionManager {
   getToken(): Promise<string>;
+  /**
+   * Fuerza la renovación sin mirar la expiración.
+   *
+   * Es lo que necesita el reintento tras un 401 inesperado: el token puede
+   * haber dejado de valer antes de la hora que declaraba.
+   */
+  renew(): Promise<string>;
   getSession(): StoredSession | null;
   clear(): void;
 }
@@ -91,28 +98,39 @@ export function createSessionManager(options: SessionManagerOptions): SessionMan
     return sesion.expiresAt - MARGEN_SEGUNDOS <= Math.floor(Date.now() / 1000);
   }
 
+  // Refresca si hay con qué; si no, acuña. Reacuñar cambia el `auth.uid()` y
+  // con él se pierden historial y lead, así que es el último recurso, no el
+  // primero.
+  async function renovar(): Promise<string> {
+    const actual = leer();
+
+    if (actual) {
+      try {
+        const renovada = await options.refresh(actual.refreshToken);
+        guardar(renovada);
+        return renovada.accessToken;
+      } catch {
+        // El refresh token pudo ser revocado o haber expirado del todo.
+        // Acuñar una nueva es preferible a dejar al visitante sin chat.
+      }
+    }
+
+    const nueva = await options.mint();
+    guardar(nueva);
+    return nueva.accessToken;
+  }
+
   return {
     getSession: leer,
+
+    renew: renovar,
 
     async getToken() {
       const actual = leer();
 
       if (actual && !caduca(actual)) return actual.accessToken;
 
-      if (actual) {
-        try {
-          const renovada = await options.refresh(actual.refreshToken);
-          guardar(renovada);
-          return renovada.accessToken;
-        } catch {
-          // El refresh token pudo ser revocado o haber expirado del todo.
-          // Acuñar una nueva es preferible a dejar al visitante sin chat.
-        }
-      }
-
-      const nueva = await options.mint();
-      guardar(nueva);
-      return nueva.accessToken;
+      return renovar();
     },
 
     clear() {

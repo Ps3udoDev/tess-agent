@@ -25,6 +25,11 @@ async function appConMocks(overrides: { settings?: unknown; minted?: number } = 
     minted.veces += 1;
     return { accessToken: 'a', refreshToken: 'r', expiresAt: 999, userId: 'u' };
   });
+  vi.spyOn(app, 'refreshVisitorSession').mockImplementation(async (refreshToken: string) =>
+    refreshToken === 'r-bueno'
+      ? { accessToken: 'a2', refreshToken: 'r2', expiresAt: 1999, userId: 'u' }
+      : null,
+  );
   vi.spyOn(app, 'recordAuditEvent').mockResolvedValue(undefined);
 
   await app.ready();
@@ -137,6 +142,93 @@ describe('POST /v1/visitor-sessions', () => {
 
     expect(excedido.statusCode).toBe(429);
     expect(excedido.json().code).toBe('rate_limited');
+
+    await app.close();
+  });
+});
+
+describe('POST /v1/visitor-sessions/refresh', () => {
+  const URL_REFRESH = '/v1/visitor-sessions/refresh';
+
+  it('canjea el token y devuelve la misma forma que el acuñado', async () => {
+    const { app, minted } = await appConMocks();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: URL_REFRESH,
+      headers: { origin: 'http://localhost:5173' },
+      payload: { refreshToken: 'r-bueno', publicKey: PK },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      accessToken: 'a2',
+      refreshToken: 'r2',
+      expiresAt: 1999,
+      userId: 'u',
+      projectId: '11111111-1111-1111-1111-111111111111',
+      greeting: 'hola',
+    });
+
+    // Lo importante: NO se acuñó un usuario nuevo, así que auth.uid() —y con
+    // él el historial y el lead— sobrevive a la expiración.
+    expect(minted.veces).toBe(0);
+
+    await app.close();
+  });
+
+  it('devuelve 401 si el refresh token ya no vale', async () => {
+    const { app, minted } = await appConMocks();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: URL_REFRESH,
+      headers: { origin: 'http://localhost:5173' },
+      payload: { refreshToken: 'r-revocado', publicKey: PK },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(res.json().code).toBe('unauthorized');
+    expect(minted.veces).toBe(0);
+
+    await app.close();
+  });
+
+  it('rechaza un origen no listado', async () => {
+    const { app } = await appConMocks();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: URL_REFRESH,
+      headers: { origin: 'https://malicioso.example' },
+      payload: { refreshToken: 'r-bueno', publicKey: PK },
+    });
+
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe('forbidden_origin');
+
+    await app.close();
+  });
+
+  it('devuelve 404 si el proyecto dejó de aceptar visitantes', async () => {
+    const { app } = await appConMocks({
+      settings: {
+        project_id: '11111111-1111-1111-1111-111111111111',
+        organization_id: '22222222-2222-2222-2222-222222222222',
+        allowed_origins: ['http://localhost:5173'],
+        visitor_access: false,
+        greeting: null,
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: URL_REFRESH,
+      headers: { origin: 'http://localhost:5173' },
+      payload: { refreshToken: 'r-bueno', publicKey: PK },
+    });
+
+    expect(res.statusCode).toBe(404);
 
     await app.close();
   });

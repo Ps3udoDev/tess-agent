@@ -45,6 +45,20 @@ export const visitorSessionRequestSchema = z.object({
   publicKey: z.string().regex(/^pk_[a-zA-Z0-9_]{16,}$/),
 });
 
+/**
+ * Refresco de la sesión del visitante.
+ *
+ * Lleva también `publicKey` porque la respuesta tiene la MISMA forma que la de
+ * `/v1/visitor-sessions` —incluidos `projectId` y `greeting`— y porque permite
+ * aplicar las mismas guardas antes de canjear el token: `Origin` en la
+ * allowlist del proyecto y `visitor_access` todavía activo. Un proyecto que
+ * apagó el widget deja de renovar sesiones, no solo de acuñarlas.
+ */
+export const visitorSessionRefreshRequestSchema = z.object({
+  refreshToken: z.string().min(1).max(2048),
+  publicKey: z.string().regex(/^pk_[a-zA-Z0-9_]{16,}$/),
+});
+
 export const visitorSessionResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),

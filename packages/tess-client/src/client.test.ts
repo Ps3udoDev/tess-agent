@@ -18,14 +18,32 @@ function respuestaSse(cuerpo: string): Response {
   });
 }
 
-function clienteConFetch(fetchImpl: typeof fetch) {
+function clienteConFetch(fetchImpl: typeof fetch, storage = createMemoryStorage()) {
   return createTessClient({
     apiUrl: 'https://api.example',
     projectId: PROYECTO,
     publicKey: 'pk_dev_tess_local_0001',
-    storage: createMemoryStorage(),
+    storage,
     fetchImpl,
   });
+}
+
+const CLAVE_SESION = `tess:session:${PROYECTO}`;
+
+/** Una sesión ya caducada: `getToken()` tendrá que renovarla. */
+function almacenamientoConSesionCaducada() {
+  const storage = createMemoryStorage();
+  storage.set(
+    CLAVE_SESION,
+    JSON.stringify({
+      accessToken: 'viejo',
+      refreshToken: 'r-viejo',
+      expiresAt: 1,
+      userId: 'u-original',
+      greeting: 'hola',
+    }),
+  );
+  return storage;
 }
 
 describe('createTessClient', () => {
@@ -145,5 +163,148 @@ describe('createTessClient', () => {
         },
       },
     ]);
+  });
+});
+
+describe('refresco de sesión', () => {
+  it('canjea el refresh token y CONSERVA la identidad', async () => {
+    const rutas: string[] = [];
+    let cuerpoRefresco: unknown;
+    let bearerDelMensaje = '';
+
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const u = String(url);
+      rutas.push(u);
+
+      if (u.endsWith('/v1/visitor-sessions/refresh')) {
+        cuerpoRefresco = JSON.parse(String(init?.body));
+        return Response.json({
+          accessToken: 'nuevo',
+          refreshToken: 'r-nuevo',
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          // El MISMO usuario: es el punto de todo esto.
+          userId: 'u-original',
+          projectId: PROYECTO,
+          greeting: 'hola',
+        });
+      }
+
+      bearerDelMensaje = (init?.headers as Record<string, string>).Authorization ?? '';
+      return respuestaSse('event: assistant.completed\ndata: {"messageId":"m1"}\n\n');
+    }) as unknown as typeof fetch;
+
+    const cliente = clienteConFetch(fetchImpl, almacenamientoConSesionCaducada());
+
+    for await (const _ of cliente.sendMessage({ conversationId: 'c1', text: 'hola' })) {
+      // consumir
+    }
+
+    expect(rutas[0]).toContain('/v1/visitor-sessions/refresh');
+    expect(cuerpoRefresco).toEqual({
+      refreshToken: 'r-viejo',
+      publicKey: 'pk_dev_tess_local_0001',
+    });
+    expect(bearerDelMensaje).toBe('Bearer nuevo');
+
+    // No se acuñó nada: el auth.uid() —y con él historial y lead— sobrevive.
+    expect(rutas.some((r) => r.endsWith('/v1/visitor-sessions'))).toBe(false);
+  });
+
+  it('reacuña solo si el refresco falla', async () => {
+    const rutas: string[] = [];
+
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      const u = String(url);
+      rutas.push(u);
+
+      if (u.endsWith('/v1/visitor-sessions/refresh')) {
+        // Refresh token revocado o expirado del todo.
+        return Response.json(
+          { code: 'unauthorized', message: 'Sesión expirada.', retryable: false },
+          { status: 401 },
+        );
+      }
+
+      if (u.endsWith('/v1/visitor-sessions')) {
+        return Response.json({
+          accessToken: 'acunado',
+          refreshToken: 'r-acunado',
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          userId: 'u-otro',
+          projectId: PROYECTO,
+          greeting: null,
+        });
+      }
+
+      return respuestaSse('event: assistant.completed\ndata: {"messageId":"m1"}\n\n');
+    }) as unknown as typeof fetch;
+
+    const cliente = clienteConFetch(fetchImpl, almacenamientoConSesionCaducada());
+
+    for await (const _ of cliente.sendMessage({ conversationId: 'c1', text: 'hola' })) {
+      // consumir
+    }
+
+    expect(rutas[0]).toContain('/v1/visitor-sessions/refresh');
+    expect(rutas[1]).toMatch(/\/v1\/visitor-sessions$/);
+    expect(rutas[2]).toContain('/messages');
+  });
+
+  it('un 401 inesperado se reintenta UNA vez tras refrescar', async () => {
+    const rutas: string[] = [];
+    const bearers: string[] = [];
+    let mensajesServidos = 0;
+
+    const fetchImpl = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const u = String(url);
+      rutas.push(u);
+
+      if (u.endsWith('/v1/visitor-sessions')) {
+        return Response.json({
+          accessToken: 'a1',
+          refreshToken: 'r1',
+          // Vigente: el 401 llega sin que el cliente lo espere.
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          userId: 'u1',
+          projectId: PROYECTO,
+          greeting: null,
+        });
+      }
+
+      if (u.endsWith('/v1/visitor-sessions/refresh')) {
+        return Response.json({
+          accessToken: 'a2',
+          refreshToken: 'r2',
+          expiresAt: Math.floor(Date.now() / 1000) + 3600,
+          userId: 'u1',
+          projectId: PROYECTO,
+          greeting: null,
+        });
+      }
+
+      bearers.push((init?.headers as Record<string, string>).Authorization ?? '');
+      mensajesServidos += 1;
+
+      if (mensajesServidos === 1) {
+        return Response.json(
+          { code: 'unauthorized', message: 'No autorizado.', retryable: false },
+          { status: 401 },
+        );
+      }
+
+      return respuestaSse('event: assistant.completed\ndata: {"messageId":"m1"}\n\n');
+    }) as unknown as typeof fetch;
+
+    const cliente = clienteConFetch(fetchImpl);
+    const eventos = [];
+
+    for await (const e of cliente.sendMessage({ conversationId: 'c1', text: 'hola' })) {
+      eventos.push(e);
+    }
+
+    expect(bearers).toEqual(['Bearer a1', 'Bearer a2']);
+    expect(rutas.filter((r) => r.endsWith('/v1/visitor-sessions/refresh'))).toHaveLength(1);
+    expect(mensajesServidos).toBe(2);
+    expect(eventos).toEqual([{ event: 'assistant.completed', data: { messageId: 'm1' } }]);
   });
 });
