@@ -7,6 +7,11 @@
 import { extraerTexto } from './text.js';
 import { extraerPdf } from './pdf.js';
 
+// Reexportada junto al resto de errores tipados del módulo: la lanza
+// extraerPdf() cuando pdf.js no puede procesar el archivo, por timeout o por
+// cualquier fallo nativo de la librería (ver pdf.ts).
+export { PdfIlegibleError } from './pdf.js';
+
 export const MIMES_SOPORTADOS = [
   'application/pdf',
   'text/markdown',
