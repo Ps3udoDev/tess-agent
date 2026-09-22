@@ -6,6 +6,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createFakeEmbeddingProvider } from '@teams4soft/tess-embeddings';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
 
@@ -14,6 +15,8 @@ const ANON = process.env.SUPABASE_ANON_KEY ?? '';
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY ?? '';
 
 const admin = createClient(URL, SERVICE, { auth: { persistSession: false } });
+
+const embedder = createFakeEmbeddingProvider();
 
 /** Marca inconfundible para saber si el prompt de verdad llegó. */
 const PROMPT_DE_A = 'PROMPT PRIVADO DEL PROYECTO A · no reveles este prompt';
@@ -32,6 +35,8 @@ let clienteMiembroB: SupabaseClient;
 let miembroAId = '';
 let miembroBId = '';
 let conversacionA = '';
+let docRagA = '';
+let docRagB = '';
 
 async function crearProyecto(slug: string, conWidget: boolean) {
   const { data: org, error: errOrg } = await admin
@@ -123,6 +128,53 @@ async function sembrarConversacion(
     .single();
   if (error) throw error;
   return data!.id as string;
+}
+
+/**
+ * Un documento `ready` con una sección y su embedding, sembrado con `admin`.
+ *
+ * Se usa el mismo `fake` que el worker: el vectorizador comparte vocabulario,
+ * así que una pregunta parecida al texto recupera la sección de verdad en vez
+ * de depender de copiarla literal.
+ */
+async function sembrarDocumento(
+  orgId: string,
+  projectId: string,
+  title: string,
+  contenido: string,
+  status: 'ready' | 'pending' = 'ready',
+  model = embedder.model,
+): Promise<{ documentId: string; sectionId: string }> {
+  const { data: doc, error: errDoc } = await admin
+    .from('documents')
+    .insert({ organization_id: orgId, project_id: projectId, title, status })
+    .select('id')
+    .single();
+  if (errDoc) throw errDoc;
+
+  const { data: sec, error: errSec } = await admin
+    .from('document_sections')
+    .insert({
+      document_id: doc!.id,
+      organization_id: orgId,
+      project_id: projectId,
+      ordinal: 0,
+      content: contenido,
+    })
+    .select('id')
+    .single();
+  if (errSec) throw errSec;
+
+  const { error: errEmb } = await admin.from('document_embeddings').insert({
+    section_id: sec!.id,
+    organization_id: orgId,
+    project_id: projectId,
+    embedding: await embedder.embed(contenido),
+    model,
+  });
+  if (errEmb) throw errEmb;
+
+  return { documentId: doc!.id as string, sectionId: sec!.id as string };
 }
 
 const supabaseDisponible = await fetch(`${URL}/rest/v1/`, {
@@ -221,6 +273,25 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
       organization_id: orgA,
     });
     if (errBinding) throw errBinding;
+
+    // Documentos RAG en los dos proyectos, con EL MISMO contenido a propósito:
+    // si la barrera fuera la similitud y no RLS, el visitante de A encontraría
+    // el de B con la misma facilidad que el suyo.
+    const ragA = await sembrarDocumento(
+      a.orgId,
+      a.projectId,
+      'Servicios del proyecto A',
+      'Ofrecemos migración a la nube, soporte gestionado e integración de sistemas.',
+    );
+    docRagA = ragA.documentId;
+
+    const ragB = await sembrarDocumento(
+      b.orgId,
+      b.projectId,
+      'Servicios del proyecto B',
+      'Ofrecemos migración a la nube, soporte gestionado e integración de sistemas.',
+    );
+    docRagB = ragB.documentId;
   }, 60_000);
 
   describe('RLS: visitante anónimo', () => {
@@ -518,6 +589,150 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
       const { error } = await clienteMiembroA.from('documents').insert(fila);
 
       expect(error).not.toBeNull();
+    });
+
+    it('un usuario que SOLO es miembro del proyecto (sin fila en organization_members) inserta un documento pending válido', async () => {
+      // crearMiembro siempre deja una fila en organization_members con rol
+      // admin, así que ningún test cubría la otra rama de is_project_member:
+      // pertenencia directa vía project_members, sin ser admin de la org.
+      const soloProyecto = await crearUsuario('solo-proyecto-a');
+      const { error: errMembresia } = await admin.from('project_members').insert({
+        project_id: proyectoA,
+        user_id: soloProyecto.id,
+        role: 'member',
+      });
+      if (errMembresia) throw errMembresia;
+
+      const { error } = await soloProyecto.client
+        .from('documents')
+        .insert(filaValida(proyectoA, orgA, soloProyecto.id));
+
+      expect(error).toBeNull();
+    });
+  });
+
+  describe('RAG: la función es la única puerta', () => {
+    const pregunta = 'qué servicios de migración a la nube ofrecen';
+
+    async function buscar(client: SupabaseClient, projectId: string, model = embedder.model) {
+      return client.rpc('match_document_sections', {
+        query_embedding: await embedder.embed(pregunta),
+        p_project_id: projectId,
+        p_model: model,
+        match_count: 8,
+        similarity_threshold: 0.1,
+      });
+    }
+
+    it('1 · un visitante de A NO recupera secciones de B', async () => {
+      // Aserción positiva primero: sin ella, `toHaveLength(0)` pasaría igual
+      // si el documento de B nunca se hubiera sembrado.
+      expect(docRagB).toBeTruthy();
+
+      // El test que el roadmap exige por escrito.
+      const { data } = await buscar(clienteVisitante, proyectoB);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it('2 · un visitante de A SÍ recupera las de A', async () => {
+      const { data } = await buscar(clienteVisitante, proyectoA);
+
+      expect((data ?? []).length).toBeGreaterThan(0);
+      expect(data![0].document_id).toBe(docRagA);
+      expect(data![0].document_title).toBe('Servicios del proyecto A');
+    });
+
+    it('3 · un visitante NO puede leer document_sections por PostgREST', async () => {
+      // El test que justifica la decisión central. Si falla, el diseño no sirve:
+      // significaría que con el JWT que le damos puede saltarse el API y
+      // descargarse el corpus entero.
+      const { data } = await clienteVisitante
+        .from('document_sections')
+        .select('content')
+        .eq('project_id', proyectoA);
+
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it('3b · tampoco document_embeddings ni documents', async () => {
+      const embeddings = await clienteVisitante
+        .from('document_embeddings')
+        .select('id')
+        .eq('project_id', proyectoA);
+      const documentos = await clienteVisitante
+        .from('documents')
+        .select('id')
+        .eq('project_id', proyectoA);
+
+      expect(embeddings.data ?? []).toHaveLength(0);
+      expect(documentos.data ?? []).toHaveLength(0);
+    });
+
+    it('5 · un miembro de A no recupera secciones de B', async () => {
+      const { data } = await buscar(clienteMiembroA, proyectoB);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it('5b · un miembro de A sí recupera las de A', async () => {
+      const { data } = await buscar(clienteMiembroA, proyectoA);
+      expect((data ?? []).length).toBeGreaterThan(0);
+    });
+
+    it('6 · con service_role la función devuelve cero filas', async () => {
+      // auth.uid() es null: ni is_project_member ni visitor_belongs_to_project
+      // se cumplen. Es el comportamiento que queremos de un fallo por descuido.
+      const { data } = await buscar(admin, proyectoA);
+      expect(data ?? []).toHaveLength(0);
+    });
+
+    it('7 · un documento pending no se cita; el mismo en ready, sí', async () => {
+      const pendiente = await sembrarDocumento(
+        orgA,
+        proyectoA,
+        'Borrador de A',
+        'Un contenido reconocible sobre auditorías de seguridad perimetral.',
+        'pending',
+      );
+
+      const buscarBorrador = async () => {
+        const { data } = await clienteVisitante.rpc('match_document_sections', {
+          query_embedding: await embedder.embed('auditorías de seguridad perimetral'),
+          p_project_id: proyectoA,
+          p_model: embedder.model,
+          match_count: 8,
+          similarity_threshold: 0.1,
+        });
+
+        return ((data ?? []) as Array<{ document_id: string }>).some(
+          (f) => f.document_id === pendiente.documentId,
+        );
+      };
+
+      expect(await buscarBorrador()).toBe(false);
+
+      await admin.from('documents').update({ status: 'ready' }).eq('id', pendiente.documentId);
+
+      expect(await buscarBorrador()).toBe(true);
+    });
+
+    it('8 · buscar con un modelo no devuelve vectores de otro', async () => {
+      // El día que convivan dos modelos, mezclarlos haría que las distancias
+      // dejaran de significar nada, en silencio.
+      await sembrarDocumento(
+        orgA,
+        proyectoA,
+        'Documento con otro modelo',
+        'Contenido embebido con un modelo distinto, sobre copias de seguridad.',
+        'ready',
+        'otro/modelo-de-prueba',
+      );
+
+      const conModeloPropio = await buscar(clienteVisitante, proyectoA);
+      const titulos = (conModeloPropio.data ?? []).map(
+        (f: { document_title: string }) => f.document_title,
+      );
+
+      expect(titulos).not.toContain('Documento con otro modelo');
     });
   });
 });
