@@ -6,12 +6,20 @@ export interface SendMessageInput {
   signal?: AbortSignal;
 }
 
+/** La forma que documenta la columna `messages.sources` en 0004. */
+export interface MessageSource {
+  documentId: string;
+  sectionId: string;
+  title: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   createdAt: string; // ISO 8601
   incomplete?: boolean; // el stream se cortó a mitad
+  sources?: MessageSource[]; // F3
 }
 
 export interface LeadInput {

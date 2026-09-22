@@ -98,12 +98,51 @@ export const viewerResponseSchema = z.object({
   collectLeadsFromMembers: z.boolean(),
 });
 
+/** La forma que documenta la columna `messages.sources` en 0004. */
+export const messageSourceSchema = z.object({
+  documentId: z.uuid(),
+  sectionId: z.uuid(),
+  title: z.string(),
+});
+
 export const chatMessageSchema = z.object({
   id: z.uuid(),
   role: z.enum(['user', 'assistant']),
   content: z.string(),
   createdAt: z.iso.datetime(),
   incomplete: z.boolean().optional(),
+  /** F3. Opcional: un mensaje de F2 sigue validando. */
+  sources: z.array(messageSourceSchema).optional(),
 });
 
 export const assistantStateSchema = z.enum(ASSISTANT_STATES);
+
+// -----------------------------------------------------------------------------
+// F3 · Documentos y citas
+// -----------------------------------------------------------------------------
+
+/** Refleja el enum `public.document_status` de 0003. */
+export const documentStatusSchema = z.enum([
+  'pending',
+  'processing',
+  'ready',
+  'failed',
+]);
+
+export const documentSummarySchema = z.object({
+  id: z.uuid(),
+  title: z.string(),
+  status: documentStatusSchema,
+  /** Legible y saneado: se le enseña a quien subió el archivo. */
+  failureReason: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const documentListResponseSchema = z.object({
+  documents: z.array(documentSummarySchema),
+});
+
+export const documentUploadResponseSchema = z.object({
+  documentId: z.uuid(),
+  status: documentStatusSchema,
+});
