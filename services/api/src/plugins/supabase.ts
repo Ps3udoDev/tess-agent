@@ -20,6 +20,7 @@
 import fp from 'fastify-plugin';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { FastifyInstance } from 'fastify';
+import type { FuentePersistida } from '../rag/citations.js';
 
 export interface VisitorSession {
   accessToken: string;
@@ -35,6 +36,8 @@ export interface AssistantMessageInput {
   content: string;
   incomplete?: boolean;
   latencyMs?: number;
+  /** F3. La columna existe desde 0004 con default '[]'. */
+  sources?: FuentePersistida[];
 }
 
 export interface AuditEventInput {
@@ -187,6 +190,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
           content: input.content,
           latency_ms: input.latencyMs ?? null,
           metadata: input.incomplete ? { incomplete: true } : {},
+          sources: input.sources ?? [],
         })
         .select('id')
         .single();
