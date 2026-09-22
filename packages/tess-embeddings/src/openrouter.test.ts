@@ -128,4 +128,36 @@ describe('createOpenRouterEmbeddingProvider', () => {
     expect(await provider.embedMany([])).toEqual([]);
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  it('rechaza un index fuera de rango', async () => {
+    const fetchImpl = vi.fn(async () =>
+      respuesta({
+        data: [
+          { index: 0, embedding: vectorDe(0.1) },
+          { index: 5, embedding: vectorDe(0.2) },
+        ],
+      }),
+    );
+
+    const provider = createOpenRouterEmbeddingProvider({ ...BASE, fetchImpl });
+    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(
+      /incompleta/,
+    );
+  });
+
+  it('rechaza un index duplicado', async () => {
+    const fetchImpl = vi.fn(async () =>
+      respuesta({
+        data: [
+          { index: 0, embedding: vectorDe(0.1) },
+          { index: 0, embedding: vectorDe(0.2) },
+        ],
+      }),
+    );
+
+    const provider = createOpenRouterEmbeddingProvider({ ...BASE, fetchImpl });
+    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(
+      /incompleta/,
+    );
+  });
 });

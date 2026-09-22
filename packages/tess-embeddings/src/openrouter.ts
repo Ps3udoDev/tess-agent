@@ -75,6 +75,7 @@ export function createOpenRouterEmbeddingProvider(
 
     // Se reordena por `index` en vez de confiar en el orden de llegada.
     const ordenados = new Array<number[]>(input.length);
+    const vistos = new Set<number>();
 
     for (const [posicion, fila] of filas.entries()) {
       const indice = fila.index ?? posicion;
@@ -82,6 +83,21 @@ export function createOpenRouterEmbeddingProvider(
 
       if (!vector)
         throw new Error('respuesta incompleta: una fila sin embedding');
+
+      // Validar que el índice sea un entero dentro del rango [0, input.length)
+      if (!Number.isInteger(indice) || indice < 0 || indice >= input.length) {
+        throw new Error(
+          `respuesta incompleta: índice ${indice} fuera de rango [0, ${input.length})`,
+        );
+      }
+
+      // Validar que no hay índices duplicados
+      if (vistos.has(indice)) {
+        throw new Error(
+          `respuesta incompleta: índice ${indice} duplicado`,
+        );
+      }
+      vistos.add(indice);
 
       // La API no acepta un parámetro `dimensions`: se recibe el tamaño nativo
       // del modelo. Si no coincide con la columna vector(1536), hay que
