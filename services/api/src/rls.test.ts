@@ -625,9 +625,14 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
     }
 
     it('1 · un visitante de A NO recupera secciones de B', async () => {
-      // Aserción positiva primero: sin ella, `toHaveLength(0)` pasaría igual
-      // si el documento de B nunca se hubiera sembrado.
-      expect(docRagB).toBeTruthy();
+      // Aserción positiva primero, con `admin` (bypasea RLS): si la sección
+      // de B no existiera de verdad, `toHaveLength(0)` de abajo pasaría igual
+      // sin que la función hubiera filtrado nada.
+      const { data: seccionesB } = await admin
+        .from('document_sections')
+        .select('id')
+        .eq('document_id', docRagB);
+      expect((seccionesB ?? []).length).toBeGreaterThan(0);
 
       // El test que el roadmap exige por escrito.
       const { data } = await buscar(clienteVisitante, proyectoB);
@@ -717,16 +722,34 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
 
     it('8 · buscar con un modelo no devuelve vectores de otro', async () => {
       // El día que convivan dos modelos, mezclarlos haría que las distancias
-      // dejaran de significar nada, en silencio.
+      // dejaran de significar nada, en silencio. El contenido es A PROPÓSITO
+      // el mismo que el de "Servicios del proyecto A" (mucho solapamiento de
+      // vocabulario con `pregunta`): si el filtro por `p_model` no existiera
+      // o estuviera roto, este documento aparecería con holgura en la
+      // búsqueda de abajo. Con contenido disjunto el test no podría fallar
+      // nunca, y eso es justo lo que el control de abajo descarta.
       await sembrarDocumento(
         orgA,
         proyectoA,
         'Documento con otro modelo',
-        'Contenido embebido con un modelo distinto, sobre copias de seguridad.',
+        'Ofrecemos migración a la nube, soporte gestionado e integración de sistemas.',
         'ready',
         'otro/modelo-de-prueba',
       );
 
+      // Control: buscando CON el modelo con el que se sembró, el documento
+      // SÍ aparece por encima del umbral. Si esto fallara, el `not.toContain`
+      // de abajo no probaría que el filtro funciona: probaría solo que el
+      // contenido no se parecía lo bastante a la pregunta.
+      const conSuPropioModelo = await buscar(clienteVisitante, proyectoA, 'otro/modelo-de-prueba');
+      const titulosConSuPropioModelo = (conSuPropioModelo.data ?? []).map(
+        (f: { document_title: string }) => f.document_title,
+      );
+      expect(titulosConSuPropioModelo).toContain('Documento con otro modelo');
+
+      // El test real: buscando con el modelo de `embedder` (el del resto del
+      // corpus), ese mismo documento NO aparece pese a ser, por contenido, el
+      // más parecido a la pregunta después del de A.
       const conModeloPropio = await buscar(clienteVisitante, proyectoA);
       const titulos = (conModeloPropio.data ?? []).map(
         (f: { document_title: string }) => f.document_title,
