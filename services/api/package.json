@@ -24,6 +24,7 @@
     "@supabase/supabase-js": "catalog:",
     "ai": "catalog:",
     "@ai-sdk/gateway": "catalog:",
+    "@teams4soft/tess-embeddings": "workspace:*",
     "@teams4soft/tess-types": "workspace:*",
     "dotenv": "catalog:",
     "fastify": "catalog:",
