@@ -76,6 +76,27 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
         });
       }
 
+      // Cada mensaje cuesta dos llamadas a OpenRouter: el embedding de la
+      // pregunta y el chat. Se limita por CONVERSACIÓN, que es donde nacen
+      // las dos, y antes de abrir el stream: un 429 debe ser un 429 y no un
+      // assistant.error dentro de un 200.
+      const limite = await app.rateLimiter.consume(
+        `messages:${conversacion.id}`,
+        app.env.MESSAGE_LIMIT,
+        app.env.MESSAGE_WINDOW_SECONDS,
+      );
+
+      if (!limite.allowed) {
+        return reply
+          .code(429)
+          .header('retry-after', Math.ceil((limite.resetAt - Date.now()) / 1000))
+          .send({
+            code: 'rate_limited',
+            message: 'Demasiados mensajes. Espera un momento.',
+            retryable: true,
+          });
+      }
+
       // 1. Mensaje del usuario. Si RLS lo rechaza, 404 sin abrir el stream:
       //    un 403 confirmaría que la conversación existe.
       const { error: errorUsuario } = await client

@@ -600,3 +600,163 @@ describe('RAG en el stream', () => {
     expect(serializado).toContain('retrievedSections');
   });
 });
+
+describe('rate limit de mensajes', () => {
+  /**
+   * Cliente falso propio de este describe. A diferencia de `clienteFalso`
+   * (fijo en PROYECTO/CONVERSACION), el id de conversación que devuelve
+   * depende del parámetro: el límite se aplica por conversación
+   * (`messages:${conversacion.id}`) y hay que poder probar dos
+   * conversaciones distintas sin que compartan la ventana.
+   */
+  function clienteFalsoPorConversacion(conversationId: string) {
+    return {
+      auth: {
+        getClaims: async () => ({
+          data: {
+            claims: {
+              sub: '33333333-3333-3333-3333-333333333333',
+              is_anonymous: true,
+            },
+          },
+          error: null,
+        }),
+      },
+      from(tabla: string) {
+        if (tabla === 'projects') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: PROYECTO,
+                    organization_id: '22222222-2222-2222-2222-222222222222',
+                  },
+                }),
+              }),
+            }),
+          };
+        }
+        if (tabla === 'conversations') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { id: conversationId, title: 'ya tiene título', locale: 'es-MX' },
+                }),
+              }),
+            }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          };
+        }
+        if (tabla === 'assistant_configs') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          };
+        }
+        // messages
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                order: () => ({
+                  limit: async () => ({ data: [], error: null }),
+                }),
+              }),
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: async () => ({ data: { id: 'msg-user' }, error: null }),
+            }),
+          }),
+        };
+      },
+    };
+  }
+
+  async function construirApp(opciones: { env?: Record<string, unknown> } = {}) {
+    const app = await buildApp({
+      modelProvider: createFakeModelProvider({ reply: 'ok' }),
+      embedder: createFakeEmbeddingProvider(),
+      env: opciones.env,
+    });
+    vi.spyOn(app, 'readAssistantConfig').mockResolvedValue({
+      system_prompt: 'PROMPT SEMBRADO POR SQL',
+      locale: 'es-MX',
+    });
+    vi.spyOn(app, 'insertAssistantMessage').mockResolvedValue({ id: 'msg-assistant' });
+    vi.spyOn(app, 'recordAuditEvent').mockResolvedValue(undefined);
+    await app.ready();
+    return app;
+  }
+
+  async function enviarPeticion(
+    app: Awaited<ReturnType<typeof construirApp>>,
+    opciones: { conversationId?: string } = {},
+  ) {
+    const conversationId = opciones.conversationId ?? CONVERSACION;
+    vi.spyOn(app, 'userClient').mockReturnValue(
+      clienteFalsoPorConversacion(conversationId) as never,
+    );
+
+    return app.inject({
+      method: 'POST',
+      url: `/v1/projects/${PROYECTO}/conversations/${conversationId}/messages`,
+      headers: { authorization: 'Bearer t' },
+      payload: { content: '¿Qué ofrecen?' },
+    });
+  }
+
+  it('devuelve 429 al superar el límite, con retry-after', async () => {
+    const app = await construirApp({
+      env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
+    });
+
+    const primera = await enviarPeticion(app);
+    expect(primera.statusCode).toBe(200);
+
+    const segunda = await enviarPeticion(app);
+    expect(segunda.statusCode).toBe(429);
+    expect(segunda.json().code).toBe('rate_limited');
+    expect(segunda.json().retryable).toBe(true);
+    expect(segunda.headers['retry-after']).toBeDefined();
+
+    await app.close();
+  });
+
+  it('el límite es por conversación, no global', async () => {
+    // Dos visitantes distintos en conversaciones distintas no se estorban.
+    const app = await construirApp({
+      env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
+    });
+
+    expect(
+      (await enviarPeticion(app, { conversationId: 'conv-a' })).statusCode,
+    ).toBe(200);
+    expect(
+      (await enviarPeticion(app, { conversationId: 'conv-b' })).statusCode,
+    ).toBe(200);
+
+    await app.close();
+  });
+
+  it('el límite se comprueba ANTES de abrir el stream', async () => {
+    // Si se comprobara después, el 429 tendría que viajar como
+    // assistant.error dentro de un 200, que es mentir sobre el código de
+    // estado.
+    const app = await construirApp({
+      env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
+    });
+    await enviarPeticion(app);
+
+    const segunda = await enviarPeticion(app);
+    expect(segunda.headers['content-type']).not.toContain('text/event-stream');
+
+    await app.close();
+  });
+});
