@@ -5,6 +5,13 @@
  * instancia, así que antes de producción hay que sustituirlo por Redis,
  * Memorystore o equivalente. El límite `anonymous_users` de Supabase sigue
  * siendo la segunda barrera, y esa sí es global.
+ *
+ * F3 le añadió el límite por conversación al enviar mensaje. Eso hace la
+ * sustitución MÁS urgente: con varias instancias, el gasto real en OpenRouter
+ * es N veces el límite configurado. Es deuda de F5.
+ *
+ * Y no sustituye al control de gasto: un límite por conversación no protege de
+ * muchas conversaciones. El presupuesto y las alertas viven en OpenRouter.
  */
 import fp from 'fastify-plugin';
 import type { FastifyInstance } from 'fastify';

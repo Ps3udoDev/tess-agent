@@ -17,8 +17,10 @@
   "dependencies": {
     "@sentry/node": "catalog:",
     "@supabase/supabase-js": "catalog:",
+    "@teams4soft/tess-embeddings": "workspace:*",
     "@teams4soft/tess-types": "workspace:*",
     "dotenv": "catalog:",
+    "pdf-parse": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
   },

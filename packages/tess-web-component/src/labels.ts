@@ -19,6 +19,7 @@ export interface ChatLabels {
   conversacion: string;
   escribe: string;
   enviar: string;
+  fuentes: string;
   estados: Partial<Record<AssistantState, string>>;
 }
 
@@ -26,6 +27,7 @@ const CHAT_ES: ChatLabels = {
   conversacion: 'Conversación con Tess',
   escribe: 'Escribe tu mensaje',
   enviar: 'Enviar',
+  fuentes: 'Fuentes',
   estados: {
     thinking: 'Pensando',
     speaking: 'Respondiendo',
@@ -38,6 +40,7 @@ const CHAT_EN: ChatLabels = {
   conversacion: 'Conversation with Tess',
   escribe: 'Type your message',
   enviar: 'Send',
+  fuentes: 'Sources',
   estados: {
     thinking: 'Thinking',
     speaking: 'Answering',

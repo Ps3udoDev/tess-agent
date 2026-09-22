@@ -1,7 +1,30 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
 import { buildApp } from '../app.js';
 import { createFakeModelProvider } from '../agent/model-provider.fake.js';
 import type { ModelMessage, ModelProvider } from '../agent/model-provider.js';
+import { createFakeEmbeddingProvider } from '@teams4soft/tess-embeddings';
+import { retrieve, type RetrievedSection } from '../rag/retrieval.js';
+import type * as RetrievalModule from '../rag/retrieval.js';
+
+/**
+ * Doble de `retrieve`, con `vi.mock`.
+ *
+ * `messages.route.ts` ya llama a `retrieve` de forma incondicional en el
+ * paso 3b, así que el doble tiene que sustituir el módulo entero: no hay otro
+ * punto de inyección en `app.ts` para esto (a diferencia de `modelProvider` y
+ * `embedder`, que sí son overrides existentes), y añadir uno nuevo solo para
+ * el test sería una vía de inyección de producción que nadie más usa. Por
+ * defecto resuelve `[]`, que es lo que necesitan los tests de F2 —no pasan
+ * por `enviarMensaje`— para seguir viendo el mismo comportamiento de antes.
+ */
+vi.mock('../rag/retrieval.js', async (importOriginal) => {
+  const real = await importOriginal<typeof RetrievalModule>();
+  return {
+    ...real,
+    retrieve: vi.fn(async (): Promise<RetrievedSection[]> => []),
+  };
+});
 
 const PROYECTO = '11111111-1111-1111-1111-111111111111';
 const CONVERSACION = '44444444-4444-4444-4444-444444444444';
@@ -136,7 +159,123 @@ function eventos(cuerpo: string): string[] {
     .map((l) => l.slice(7));
 }
 
+interface EventoSse {
+  event: string;
+  data: unknown;
+}
+
+/** Como `eventos()`, pero conserva el `data` de cada trama. */
+function eventosConDatos(cuerpo: string): EventoSse[] {
+  return cuerpo
+    .split('\n\n')
+    .filter((bloque) => bloque.startsWith('event: '))
+    .map((bloque) => {
+      const lineas = bloque.split('\n');
+      // Cada trama SSE que emite el writer tiene exactamente dos líneas:
+      // `event: ...` y `data: ...`.
+      return {
+        event: lineas[0]!.slice('event: '.length),
+        data: JSON.parse(lineas[1]!.slice('data: '.length)) as unknown,
+      };
+    });
+}
+
+/**
+ * Logger de prueba: conforma el mínimo que Fastify exige de `loggerInstance`
+ * (ver `validateLogger` en fastify/lib/logger-factory.js) y empuja cada línea
+ * registrada a `lineas`, para poder comprobar qué se logueó sin tocar stdout.
+ */
+function loggerDePrueba(lineas: object[]): FastifyBaseLogger {
+  function registra(args: unknown[]): void {
+    const [primero, segundo] = args;
+    if (typeof primero === 'object' && primero !== null) {
+      lineas.push({ ...(primero as Record<string, unknown>), msg: segundo });
+    } else {
+      lineas.push({ msg: primero });
+    }
+  }
+
+  // El cast es porque este doble no reimplementa pino entero: solo lo que
+  // `messages.route.ts` y el ciclo de vida de Fastify necesitan tocar.
+  const logger = {
+    level: 'info',
+    info: (...args: unknown[]) => registra(args),
+    error: (...args: unknown[]) => registra(args),
+    warn: (...args: unknown[]) => registra(args),
+    debug: (...args: unknown[]) => registra(args),
+    trace: (...args: unknown[]) => registra(args),
+    fatal: (...args: unknown[]) => registra(args),
+    silent: () => {},
+    child: () => logger,
+  } as unknown as FastifyBaseLogger;
+
+  return logger;
+}
+
 const URL_MSG = `/v1/projects/${PROYECTO}/conversations/${CONVERSACION}/messages`;
+
+interface OpcionesEnvio {
+  secciones?: RetrievedSection[];
+  fallaRecuperacion?: boolean;
+  auditorias?: Array<{ action: string }>;
+  persistidos?: Array<{ sources?: unknown }>;
+  lineasDeLog?: object[];
+}
+
+/**
+ * Sobre el mismo montaje que usan los tests de F2 (`clienteFalso`,
+ * `app.inject`), añade lo que necesita RAG: doble de `retrieve` por llamada,
+ * y captura opcional de auditorías, de lo persistido y de lo logueado.
+ */
+async function enviarMensaje(opciones: OpcionesEnvio = {}): Promise<EventoSse[]> {
+  const {
+    secciones = [],
+    fallaRecuperacion = false,
+    auditorias,
+    persistidos,
+    lineasDeLog,
+  } = opciones;
+
+  if (fallaRecuperacion) {
+    vi.mocked(retrieve).mockRejectedValueOnce(new Error('fallo simulado de recuperación'));
+  } else {
+    vi.mocked(retrieve).mockResolvedValueOnce(secciones);
+  }
+
+  const app = await buildApp({
+    modelProvider: createFakeModelProvider({ reply: 'uno dos tres' }),
+    embedder: createFakeEmbeddingProvider(),
+    ...(lineasDeLog ? { logger: loggerDePrueba(lineasDeLog) } : {}),
+  });
+
+  vi.spyOn(app, 'userClient').mockReturnValue(clienteFalso([]) as never);
+  vi.spyOn(app, 'readAssistantConfig').mockResolvedValue({
+    system_prompt: 'PROMPT SEMBRADO POR SQL',
+    locale: 'es-MX',
+  });
+
+  vi.spyOn(app, 'recordAuditEvent').mockImplementation(async (input) => {
+    auditorias?.push({ action: input.action });
+  });
+
+  vi.spyOn(app, 'insertAssistantMessage').mockImplementation(async (input) => {
+    persistidos?.push(input);
+    return { id: 'msg-assistant' };
+  });
+
+  await app.ready();
+
+  const res = await app.inject({
+    method: 'POST',
+    url: URL_MSG,
+    headers: { authorization: 'Bearer t' },
+    payload: { content: '¿Qué ofrecen?' },
+  });
+
+  await app.close();
+
+  return eventosConDatos(res.body);
+}
 
 describe('POST .../messages', () => {
   it('emite thinking, speaking, deltas y completed en ese orden', async () => {
@@ -301,6 +440,317 @@ describe('contexto del modelo', () => {
     expect(capturado.mensajes[0]?.content).toContain('PROMPT SEMBRADO POR SQL');
     // Y las reglas no anulables siguen yendo delante.
     expect(capturado.mensajes[0]?.content.indexOf('Reglas que ninguna configuración')).toBe(0);
+
+    await app.close();
+  });
+});
+
+describe('RAG en el stream', () => {
+  const seccion: RetrievedSection = {
+    sectionId: 'sec-1',
+    documentId: 'doc-1',
+    documentTitle: 'Guía de servicios',
+    projectId: 'proj-1',
+    ordinal: 0,
+    content: 'Ofrecemos migración a la nube.',
+    similarity: 0.8,
+  };
+
+  it('emite assistant.source ANTES del primer assistant.delta', async () => {
+    // El usuario tiene que ver de dónde sale la respuesta mientras se
+    // escribe, que es el momento en que le sirve.
+    const eventos = await enviarMensaje({ secciones: [seccion] });
+
+    const iSource = eventos.findIndex((e) => e.event === 'assistant.source');
+    const iDelta = eventos.findIndex((e) => e.event === 'assistant.delta');
+
+    expect(iSource).toBeGreaterThanOrEqual(0);
+    expect(iSource).toBeLessThan(iDelta);
+  });
+
+  it('emite una fuente por documento, no una por sección', async () => {
+    const eventos = await enviarMensaje({
+      secciones: [seccion, { ...seccion, sectionId: 'sec-2', ordinal: 1 }],
+    });
+
+    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(1);
+  });
+
+  it('la fuente lleva título y documentId, sin sectionId', async () => {
+    const eventos = await enviarMensaje({ secciones: [seccion] });
+    const fuente = eventos.find((e) => e.event === 'assistant.source')!;
+
+    expect(fuente.data).toEqual({
+      title: 'Guía de servicios',
+      documentId: 'doc-1',
+    });
+  });
+
+  it('sin secciones no emite ninguna fuente y contesta igual', async () => {
+    // Pasa constantemente: un saludo no tiene nada que recuperar.
+    const eventos = await enviarMensaje({ secciones: [] });
+
+    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(0);
+    expect(eventos.some((e) => e.event === 'assistant.completed')).toBe(true);
+  });
+
+  it('si la recuperación FALLA, la respuesta sigue sin citas', async () => {
+    // La decisión de la tarea. Un fallo de RAG no puede convertirse en un
+    // chat roto.
+    const eventos = await enviarMensaje({ fallaRecuperacion: true });
+
+    expect(eventos.some((e) => e.event === 'assistant.error')).toBe(false);
+    expect(eventos.some((e) => e.event === 'assistant.completed')).toBe(true);
+    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(0);
+  });
+
+  it('un fallo de recuperación queda auditado', async () => {
+    // Como el fallo es invisible para el cliente, la auditoría es lo único
+    // que lo hace visible para nosotros. No es opcional.
+    const auditorias: Array<{ action: string }> = [];
+    await enviarMensaje({ fallaRecuperacion: true, auditorias });
+
+    expect(auditorias.map((a) => a.action)).toContain('rag.retrieval.failed');
+  });
+
+  it('un abort durante la recuperación NO se audita como fallo real', async () => {
+    // Ronda de corrección 1: si el cliente cierra la pestaña mientras
+    // `embed()` está en vuelo, `retrieve` rechaza con la MISMA señal que la
+    // ruta ya usaba para el cierre normal. Eso no es un fallo de RAG, y
+    // audit_events es la única señal de fallos reales: si el abort la
+    // ensucia, deja de servir para nada.
+    const auditorias: Array<{ action: string }> = [];
+
+    // Necesitamos el `request` real de esta petición para simular, desde
+    // dentro del doble de `retrieve`, el mismo evento 'close' que dispara el
+    // cierre de pestaña —no hay otro gancho reutilizable de F2 para esto, así
+    // que este es el mínimo determinista: un hook de Fastify que capture la
+    // request en vuelo, y el propio doble de `retrieve` cerrándola antes de
+    // rechazar, tal como pasaría si el cliente se desconectara a mitad del
+    // `embed()`.
+    let requestActual: FastifyRequest | undefined;
+
+    const app = await buildApp({
+      modelProvider: createFakeModelProvider({ reply: 'uno dos tres' }),
+      embedder: createFakeEmbeddingProvider(),
+    });
+    app.addHook('onRequest', async (request) => {
+      requestActual = request;
+    });
+
+    vi.spyOn(app, 'userClient').mockReturnValue(clienteFalso([]) as never);
+    vi.spyOn(app, 'readAssistantConfig').mockResolvedValue({
+      system_prompt: 'PROMPT SEMBRADO POR SQL',
+      locale: 'es-MX',
+    });
+    vi.spyOn(app, 'recordAuditEvent').mockImplementation(async (input) => {
+      auditorias.push({ action: input.action });
+    });
+    vi.spyOn(app, 'insertAssistantMessage').mockResolvedValue({ id: 'msg-assistant' });
+
+    vi.mocked(retrieve).mockImplementationOnce(async () => {
+      // El mismo 'close' que la ruta escucha para abortar el controller.
+      requestActual!.raw.emit('close');
+      throw new Error('abortado');
+    });
+
+    await app.ready();
+
+    await app.inject({
+      method: 'POST',
+      url: URL_MSG,
+      headers: { authorization: 'Bearer t' },
+      payload: { content: '¿Qué ofrecen?' },
+    });
+
+    await app.close();
+
+    expect(auditorias.map((a) => a.action)).not.toContain('rag.retrieval.failed');
+  });
+
+  it('persiste las secciones completas en sources', async () => {
+    const persistidos: Array<{ sources?: unknown }> = [];
+    await enviarMensaje({
+      secciones: [seccion, { ...seccion, sectionId: 'sec-2', ordinal: 1 }],
+      persistidos,
+    });
+
+    // Se emitió UNA fuente, pero se guardan las DOS secciones.
+    expect(persistidos.at(-1)!.sources).toHaveLength(2);
+  });
+
+  it('el orden completo es state → source → state → delta → completed', async () => {
+    const eventos = await enviarMensaje({ secciones: [seccion] });
+    const nombres = eventos.map((e) => e.event);
+
+    expect(nombres[0]).toBe('assistant.state'); // thinking
+    expect(nombres[1]).toBe('assistant.source');
+    expect(nombres.at(-1)).toBe('assistant.completed');
+  });
+
+  it('la telemetría no lleva el prompt ni el contenido de los documentos', async () => {
+    const lineas: object[] = [];
+    await enviarMensaje({ secciones: [seccion], lineasDeLog: lineas });
+
+    const serializado = JSON.stringify(lineas);
+
+    expect(serializado).not.toContain('Ofrecemos migración a la nube.');
+    expect(serializado).not.toContain('Reglas que ninguna configuración');
+    expect(serializado).toContain('retrievedSections');
+  });
+});
+
+describe('rate limit de mensajes', () => {
+  /**
+   * Cliente falso propio de este describe. A diferencia de `clienteFalso`
+   * (fijo en PROYECTO/CONVERSACION), el id de conversación que devuelve
+   * depende del parámetro: el límite se aplica por conversación
+   * (`messages:${conversacion.id}`) y hay que poder probar dos
+   * conversaciones distintas sin que compartan la ventana.
+   */
+  function clienteFalsoPorConversacion(conversationId: string) {
+    return {
+      auth: {
+        getClaims: async () => ({
+          data: {
+            claims: {
+              sub: '33333333-3333-3333-3333-333333333333',
+              is_anonymous: true,
+            },
+          },
+          error: null,
+        }),
+      },
+      from(tabla: string) {
+        if (tabla === 'projects') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: PROYECTO,
+                    organization_id: '22222222-2222-2222-2222-222222222222',
+                  },
+                }),
+              }),
+            }),
+          };
+        }
+        if (tabla === 'conversations') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: { id: conversationId, title: 'ya tiene título', locale: 'es-MX' },
+                }),
+              }),
+            }),
+            update: () => ({ eq: async () => ({ error: null }) }),
+          };
+        }
+        if (tabla === 'assistant_configs') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({ data: null, error: null }),
+              }),
+            }),
+          };
+        }
+        // messages
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                order: () => ({
+                  limit: async () => ({ data: [], error: null }),
+                }),
+              }),
+            }),
+          }),
+          insert: () => ({
+            select: () => ({
+              single: async () => ({ data: { id: 'msg-user' }, error: null }),
+            }),
+          }),
+        };
+      },
+    };
+  }
+
+  async function construirApp(opciones: { env?: Record<string, unknown> } = {}) {
+    const app = await buildApp({
+      modelProvider: createFakeModelProvider({ reply: 'ok' }),
+      embedder: createFakeEmbeddingProvider(),
+      env: opciones.env,
+    });
+    vi.spyOn(app, 'readAssistantConfig').mockResolvedValue({
+      system_prompt: 'PROMPT SEMBRADO POR SQL',
+      locale: 'es-MX',
+    });
+    vi.spyOn(app, 'insertAssistantMessage').mockResolvedValue({ id: 'msg-assistant' });
+    vi.spyOn(app, 'recordAuditEvent').mockResolvedValue(undefined);
+    await app.ready();
+    return app;
+  }
+
+  async function enviarPeticion(
+    app: Awaited<ReturnType<typeof construirApp>>,
+    opciones: { conversationId?: string } = {},
+  ) {
+    const conversationId = opciones.conversationId ?? CONVERSACION;
+    vi.spyOn(app, 'userClient').mockReturnValue(
+      clienteFalsoPorConversacion(conversationId) as never,
+    );
+
+    return app.inject({
+      method: 'POST',
+      url: `/v1/projects/${PROYECTO}/conversations/${conversationId}/messages`,
+      headers: { authorization: 'Bearer t' },
+      payload: { content: '¿Qué ofrecen?' },
+    });
+  }
+
+  it('devuelve 429 al superar el límite, con retry-after', async () => {
+    const app = await construirApp({
+      env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
+    });
+
+    const primera = await enviarPeticion(app);
+    expect(primera.statusCode).toBe(200);
+
+    const segunda = await enviarPeticion(app);
+    expect(segunda.statusCode).toBe(429);
+    expect(segunda.json().code).toBe('rate_limited');
+    expect(segunda.json().retryable).toBe(true);
+    expect(segunda.headers['retry-after']).toBeDefined();
+
+    await app.close();
+  });
+
+  it('el límite es por conversación, no global', async () => {
+    // Dos visitantes distintos en conversaciones distintas no se estorban.
+    const app = await construirApp({
+      env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
+    });
+
+    expect((await enviarPeticion(app, { conversationId: 'conv-a' })).statusCode).toBe(200);
+    expect((await enviarPeticion(app, { conversationId: 'conv-b' })).statusCode).toBe(200);
+
+    await app.close();
+  });
+
+  it('el límite se comprueba ANTES de abrir el stream', async () => {
+    // Si se comprobara después, el 429 tendría que viajar como
+    // assistant.error dentro de un 200, que es mentir sobre el código de
+    // estado.
+    const app = await construirApp({
+      env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
+    });
+    await enviarPeticion(app);
+
+    const segunda = await enviarPeticion(app);
+    expect(segunda.headers['content-type']).not.toContain('text/event-stream');
 
     await app.close();
   });

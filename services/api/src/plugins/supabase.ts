@@ -10,14 +10,19 @@
  * RLS es leer este archivo, no auditar el servicio entero.
  *
  *   - acuñar la sesión del visitante      · todavía no hay JWT
+ *   - escribir visitor_sessions           · el binding, en el mismo acto
+ *   - refrescar last_seen_at              · 0012 revoca el grant a anon/authenticated
  *   - insertar el mensaje del asistente   · messages_insert_own solo deja 'user'
  *   - escribir audit_events               · sin política de insert
  *   - leer project_widget_settings        · se lee antes de que exista el JWT
  *   - leer assistant_configs              · el prompt no debe ser legible vía RLS
+ *   - subir a Storage                     · bucket privado, lo lee el worker
+ *   - marcar un documento como failed     · 0015 no da update a authenticated
  */
 import fp from 'fastify-plugin';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { FastifyInstance } from 'fastify';
+import type { FuentePersistida } from '../rag/citations.js';
 
 export interface VisitorSession {
   accessToken: string;
@@ -33,6 +38,8 @@ export interface AssistantMessageInput {
   content: string;
   incomplete?: boolean;
   latencyMs?: number;
+  /** F3. La columna existe desde 0004 con default '[]'. */
+  sources?: FuentePersistida[];
 }
 
 export interface AuditEventInput {
@@ -74,23 +81,67 @@ async function plugin(app: FastifyInstance): Promise<void> {
     }),
   );
 
-  // Todavía no hay JWT. Es el acto de crearlo.
-  app.decorate('mintVisitorSession', async (): Promise<VisitorSession> => {
-    const mintClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
-    const { data, error } = await mintClient.auth.signInAnonymously();
+  /**
+   * Acuñar la sesión del visitante y atarla a su proyecto.
+   *
+   * Por qué service_role: todavía no hay JWT. Es el acto de crearlo, así que
+   * no hay credencial de usuario con la que pedirle esto a Supabase.
+   *
+   * La fila de `visitor_sessions` se escribe ANTES de devolver el token, y el
+   * orden no es cosmético: desde 0012 las políticas la exigen, así que un
+   * cliente rápido que recibiera el token antes de que exista la fila se
+   * comería un 404 en su primera petición.
+   *
+   * Si la escritura falla se borra el usuario recién creado: un anónimo sin
+   * binding no sirve para nada y solo ensucia auth.users.
+   */
+  app.decorate(
+    'mintVisitorSession',
+    async (input: { projectId: string; organizationId: string }): Promise<VisitorSession> => {
+      const mintClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data, error } = await mintClient.auth.signInAnonymously();
 
-    if (error || !data.session || !data.user) {
-      throw new Error(`no se pudo acuñar la sesión: ${error?.message ?? 'sin sesión'}`);
-    }
+      if (error || !data.session || !data.user) {
+        throw new Error(`no se pudo acuñar la sesión: ${error?.message ?? 'sin sesión'}`);
+      }
 
-    return {
-      accessToken: data.session.access_token,
-      refreshToken: data.session.refresh_token,
-      expiresAt: data.session.expires_at ?? 0,
-      userId: data.user.id,
-    };
+      const { error: errBinding } = await serviceClient.from('visitor_sessions').insert({
+        user_id: data.user.id,
+        project_id: input.projectId,
+        organization_id: input.organizationId,
+      });
+
+      if (errBinding) {
+        await serviceClient.auth.admin.deleteUser(data.user.id).catch(() => undefined);
+        throw new Error(`no se pudo atar la sesión al proyecto: ${errBinding.message}`);
+      }
+
+      return {
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+        expiresAt: data.session.expires_at ?? 0,
+        userId: data.user.id,
+      };
+    },
+  );
+
+  /**
+   * `last_seen_at` al refrescar. El binding no cambia: auth.uid() es el mismo.
+   *
+   * Por qué service_role: aunque el refresco ya trae un JWT de visitante
+   * válido, no sirve aquí. 0012 hace `revoke all ... from anon, authenticated`
+   * sobre `visitor_sessions`, así que ningún JWT de usuario —ni el del propio
+   * visitante— puede escribir esta tabla bajo ninguna circunstancia.
+   */
+  app.decorate('touchVisitorSession', async (userId: string): Promise<void> => {
+    const { error } = await serviceClient
+      .from('visitor_sessions')
+      .update({ last_seen_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    if (error) app.log.error({ err: error.message }, 'fallo al refrescar last_seen_at');
   });
 
   /**
@@ -138,6 +189,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
           content: input.content,
           latency_ms: input.latencyMs ?? null,
           metadata: input.incomplete ? { incomplete: true } : {},
+          sources: input.sources ?? [],
         })
         .select('id')
         .single();
@@ -222,6 +274,54 @@ async function plugin(app: FastifyInstance): Promise<void> {
     },
   );
 
+  /**
+   * Subida al bucket privado.
+   *
+   * Con service_role porque el bucket es privado y el worker tiene que poder
+   * leerlo después con la misma credencial. La AUTORIZACIÓN no está aquí: está
+   * en el `insert` sobre `documents`, que va con el JWT del miembro y que RLS
+   * evalúa con is_project_member. Si ese insert falla, este archivo no se sube.
+   */
+  app.decorate(
+    'subirDocumento',
+    async (input: {
+      bucket: string;
+      path: string;
+      contenido: Buffer;
+      contentType: string;
+    }): Promise<void> => {
+      const { error } = await serviceClient.storage
+        .from(input.bucket)
+        .upload(input.path, input.contenido, {
+          contentType: input.contentType,
+          upsert: false,
+        });
+
+      if (error) throw new Error(`no se pudo subir el documento: ${error.message}`);
+    },
+  );
+
+  /**
+   * Marca un documento como fallido tras un error de Storage.
+   *
+   * Con service_role porque 0015 NO da `update` a `authenticated`: si lo
+   * diera, un miembro podría marcar su propio documento como 'ready' sin que
+   * el worker lo hubiera procesado nunca. Este es el único update legítimo
+   * que nace en el API en vez de en el worker, y por eso vive aquí y no en
+   * `documents.route.ts` con el cliente del usuario.
+   */
+  app.decorate(
+    'marcarDocumentoFallido',
+    async (input: { documentId: string; razon: string }): Promise<void> => {
+      const { error } = await serviceClient
+        .from('documents')
+        .update({ status: 'failed', failure_reason: input.razon })
+        .eq('id', input.documentId);
+
+      if (error) app.log.error({ err: error.message }, 'fallo al marcar el documento como failed');
+    },
+  );
+
   app.decorate('listWidgetOrigins', async (): Promise<string[]> => {
     const { data } = await serviceClient
       .from('project_widget_settings')
@@ -237,7 +337,11 @@ export const supabasePlugin = fp(plugin, { name: 'supabase' });
 declare module 'fastify' {
   interface FastifyInstance {
     userClient(token: string): SupabaseClient;
-    mintVisitorSession(): Promise<VisitorSession>;
+    mintVisitorSession(input: {
+      projectId: string;
+      organizationId: string;
+    }): Promise<VisitorSession>;
+    touchVisitorSession(userId: string): Promise<void>;
     refreshVisitorSession(refreshToken: string): Promise<VisitorSession | null>;
     insertAssistantMessage(input: AssistantMessageInput): Promise<{ id: string }>;
     recordAuditEvent(input: AuditEventInput): Promise<void>;
@@ -245,5 +349,12 @@ declare module 'fastify' {
     readWidgetSettingsByProject(projectId: string): Promise<WidgetSettings | null>;
     readAssistantConfig(projectId: string): Promise<AssistantConfig | null>;
     listWidgetOrigins(): Promise<string[]>;
+    subirDocumento(input: {
+      bucket: string;
+      path: string;
+      contenido: Buffer;
+      contentType: string;
+    }): Promise<void>;
+    marcarDocumentoFallido(input: { documentId: string; razon: string }): Promise<void>;
   }
 }

@@ -21,16 +21,55 @@ export interface ChatViewOptions {
   onSend(texto: string): void;
 }
 
+export interface ChatSource {
+  title: string;
+  documentId: string;
+}
+
 export interface ChatView {
   mount(): void;
-  append(role: 'user' | 'assistant', content: string): void;
+  append(role: 'user' | 'assistant', content: string, fuentes?: ChatSource[]): void;
   beginStreaming(): void;
   pushDelta(texto: string): void;
+  pushSource(fuente: ChatSource): void;
   commitStreaming(): void;
   commitStreamingAndRead(): string;
   setStatus(state: AssistantState | null): void;
   focusComposer(): void;
   destroy(): void;
+}
+
+/**
+ * Las citas van DENTRO del `<li>` del mensaje.
+ *
+ * El log ya es `aria-live="polite"` con `aria-relevant="additions"`: al entrar
+ * el mensaje entero, el lector anuncia texto y fuentes de una vez y en orden.
+ * Si vivieran en una región viva propia se anunciarían sueltas y sin contexto.
+ */
+function construirFuentes(fuentes: ChatSource[], etiqueta: string): HTMLElement | null {
+  if (fuentes.length === 0) return null;
+
+  const contenedor = document.createElement('div');
+  contenedor.setAttribute('part', 'sources');
+
+  const titulo = document.createElement('span');
+  titulo.setAttribute('part', 'sources-label');
+  titulo.textContent = etiqueta;
+
+  const lista = document.createElement('ul');
+
+  for (const fuente of fuentes) {
+    const item = document.createElement('li');
+    item.setAttribute('part', 'source');
+    // Sin enlace: el visitante no tiene permiso sobre el archivo original.
+    // El documentId queda accesible para el panel de F5.
+    item.dataset.documentId = fuente.documentId;
+    item.textContent = fuente.title;
+    lista.append(item);
+  }
+
+  contenedor.append(titulo, lista);
+  return contenedor;
 }
 
 export function createChatView(options: ChatViewOptions): ChatView {
@@ -63,6 +102,15 @@ export function createChatView(options: ChatViewOptions): ChatView {
   enviar.type = 'submit';
   enviar.textContent = labels.enviar;
 
+  /**
+   * Fuentes del turno en curso.
+   *
+   * Llegan ANTES del primer delta, así que hay que guardarlas hasta que el
+   * mensaje se cierre. Se vacían en `beginStreaming` para que las de un turno
+   * no se arrastren al siguiente.
+   */
+  let fuentesEnCurso: ChatSource[] = [];
+
   function alEnviar(evento: Event): void {
     evento.preventDefault();
     const texto = campo.value.trim();
@@ -89,32 +137,50 @@ export function createChatView(options: ChatViewOptions): ChatView {
       campo.addEventListener('keydown', alTeclear);
     },
 
-    append(role, content) {
+    append(role, content, fuentes = []) {
       const item = document.createElement('li');
-      item.setAttribute('part', role === 'user' ? 'message-user' : 'message-assistant');
-      item.textContent = content;
+      item.setAttribute('part', 'message');
+      item.dataset.role = role;
+
+      const texto = document.createElement('p');
+      texto.textContent = content;
+      item.append(texto);
+
+      const bloque = construirFuentes(fuentes, labels.fuentes);
+      if (bloque) item.append(bloque);
+
       log.append(item);
       log.scrollTop = log.scrollHeight;
     },
 
     beginStreaming() {
       enCurso.textContent = '';
+      fuentesEnCurso = [];
     },
 
     pushDelta(texto) {
       enCurso.textContent = (enCurso.textContent ?? '') + texto;
     },
 
+    pushSource(fuente) {
+      // Deduplicar aquí también: el servidor ya emite una por documento, pero
+      // el componente no debe depender de que el servidor nunca se equivoque.
+      if (fuentesEnCurso.some((f) => f.documentId === fuente.documentId)) return;
+      fuentesEnCurso.push(fuente);
+    },
+
     commitStreaming() {
       const completo = enCurso.textContent ?? '';
       enCurso.textContent = '';
-      if (completo !== '') this.append('assistant', completo);
+      if (completo !== '') this.append('assistant', completo, fuentesEnCurso);
+      fuentesEnCurso = [];
     },
 
     commitStreamingAndRead() {
       const completo = enCurso.textContent ?? '';
       enCurso.textContent = '';
-      if (completo !== '') this.append('assistant', completo);
+      if (completo !== '') this.append('assistant', completo, fuentesEnCurso);
+      fuentesEnCurso = [];
       return completo;
     },
 
