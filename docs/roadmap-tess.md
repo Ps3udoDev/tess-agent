@@ -30,7 +30,7 @@ y personaje).
 | ---- | --------------------------- | --------------------------------------- | ----------------------------------------------------- | ---------------------------------------------- |
 | F1   | Componente visual           | ✅ **Cerrada** — PR #1, merge `ec128d5` | `specs/2026-09-19-fase-1-componente-visual-design.md` | `plans/2026-09-19-fase-1-componente-visual.md` |
 | F2   | Backend de chat e identidad | ✅ **Cerrada** — PR #N, merge `<sha>`   | `specs/2026-09-19-fase-2-backend-chat-design.md`      | `plans/2026-09-19-fase-2-backend-chat.md`      |
-| F3   | RAG                         | ⬜ No iniciada                          | —                                                     | —                                              |
+| F3   | RAG                         | ✅ **Cerrada** — PR #N, merge `<sha>`   | `specs/2026-09-19-fase-3-rag-design.md`               | `plans/2026-09-19-fase-3-rag.md`               |
 | F4   | Agente, MCP y conectores    | ⬜ No iniciada                          | —                                                     | —                                              |
 | F5   | Operación                   | ⬜ No iniciada                          | —                                                     | —                                              |
 
@@ -40,30 +40,33 @@ Un contrato congelado no se renegocia. Puede **ensancharse de forma aditiva**
 —añadir un campo opcional, un método opcional, un endpoint nuevo— pero no
 cambiar de forma ni de significado.
 
-| Contrato                                          | Se congela en | Lo consume                            | Dónde vive                                     |
-| ------------------------------------------------- | ------------- | ------------------------------------- | ---------------------------------------------- |
-| `AssistantState` — 7 estados                      | **F1** ✅     | F2 vía SSE, F4                        | `packages/tess-types/src/assistant.ts`         |
-| Atributos, métodos y eventos del web component    | **F1** ✅     | todas                                 | `packages/tess-web-component/src/element.ts`   |
-| `AssistantStreamEvent` — 5 eventos                | **F1** ✅     | F2 lo produce, F3 emite `source`      | `packages/tess-types/src/events.ts`            |
-| Contrato del `.riv` — 3 triggers, 4 booleanos     | **F1** ✅     | solo `tess-rive`                      | `packages/tess-rive/src/contract.ts`           |
-| Esquema Supabase base — 12 tablas + RLS           | pre-F1 ✅     | F2, F3, F4                            | `supabase/migrations/0001`–`0007`              |
-| `TessClientLike` — cliente HTTP/SSE               | **F2** ✅     | F3, F4                                | `packages/tess-types/src/client.ts`            |
-| Modelo de identidad — visitante, usuario, miembro | **F2** ✅     | F3, F4, F5                            | `supabase/migrations/0008`–`0010`              |
-| Esquemas zod de la API                            | **F2** ✅     | F3, F4                                | `packages/tess-types/src/api.ts`               |
-| `ModelProvider` — interfaz de streaming           | **F2** ✅     | F3 le añade contexto, F4 herramientas | `services/api/src/agent/model-provider.ts`     |
-| Secuencia de eventos SSE                          | **F2** ✅     | F3, F4                                | `packages/tess-types/src/events.ts`            |
-| Forma de las citas — `messages.sources`           | **F3**        | F4, panel admin                       | `supabase/migrations/0004` (columna ya existe) |
-| Allowlist de herramientas MCP                     | **F4**        | F5                                    | `assistant_configs.enabled_tools` (ya existe)  |
-| Formato de `audit_events.metadata`                | **F4**        | F5                                    | `supabase/migrations/0005` (tabla ya existe)   |
+| Contrato                                          | Se congela en | Lo consume                            | Dónde vive                                                      |
+| ------------------------------------------------- | ------------- | ------------------------------------- | --------------------------------------------------------------- |
+| `AssistantState` — 7 estados                      | **F1** ✅     | F2 vía SSE, F4                        | `packages/tess-types/src/assistant.ts`                          |
+| Atributos, métodos y eventos del web component    | **F1** ✅     | todas                                 | `packages/tess-web-component/src/element.ts`                    |
+| `AssistantStreamEvent` — 5 eventos                | **F1** ✅     | F2 lo produce, F3 emite `source`      | `packages/tess-types/src/events.ts`                             |
+| Contrato del `.riv` — 3 triggers, 4 booleanos     | **F1** ✅     | solo `tess-rive`                      | `packages/tess-rive/src/contract.ts`                            |
+| Esquema Supabase base — 12 tablas + RLS           | pre-F1 ✅     | F2, F3, F4                            | `supabase/migrations/0001`–`0007`                               |
+| `TessClientLike` — cliente HTTP/SSE               | **F2** ✅     | F3, F4                                | `packages/tess-types/src/client.ts`                             |
+| Modelo de identidad — visitante, usuario, miembro | **F2** ✅     | F3, F4, F5                            | `supabase/migrations/0008`–`0010`                               |
+| Esquemas zod de la API                            | **F2** ✅     | F3, F4                                | `packages/tess-types/src/api.ts`                                |
+| `ModelProvider` — interfaz de streaming           | **F2** ✅     | F3 le añade contexto, F4 herramientas | `services/api/src/agent/model-provider.ts`                      |
+| Secuencia de eventos SSE                          | **F2** ✅     | F3, F4                                | `packages/tess-types/src/events.ts`                             |
+| Forma de las citas — `messages.sources`           | **F3** ✅     | F4, panel admin                       | `packages/tess-types/src/client.ts` y `0004_chat_schema.sql`   |
+| Estrategia de chunking                            | **F3** ✅     | worker de ingesta                     | `services/ingest-worker/src/chunk.ts`                           |
+| `EmbeddingProvider` — vectorización               | **F3** ✅     | API y worker                          | `packages/tess-embeddings/src/provider.ts`                      |
+| Firma de `match_document_sections`                | **F3** ✅     | API Fastify                           | `supabase/migrations/0007_rag_fn.sql` (actualizada en 0013/0014)|
+| Binding de sesión de visitante                    | **F3** ✅     | RLS en Supabase                       | `supabase/migrations/0012_visitor_sessions.sql`                 |
+| Allowlist de herramientas MCP                     | **F4**        | F5                                    | `assistant_configs.enabled_tools` (ya existe)                   |
+| Formato de `audit_events.metadata`                | **F4**        | F5                                    | `supabase/migrations/0005` (tabla ya existe)                    |
 
 ### Contratos que el esquema ya reserva
 
-Tres columnas del esquema base existen desde antes de F1 y **nadie las escribe
+Dos columnas del esquema base existen desde antes de F1 y **nadie las escribe
 todavía**. No son deuda: son fronteras reservadas.
 
-- `messages.sources` — citas de RAG. La puebla F3.
 - `assistant_configs.enabled_tools` — allowlist de herramientas. La puebla F4.
-- `audit_events` — auditoría. La escribe F2 de forma mínima y F4 en serio.
+- `audit_events` — auditoría. La escribe F2 y F3 de forma puntual y F4 en serio.
 
 ---
 
@@ -156,50 +159,38 @@ producto vive en landings públicas, donde el interlocutor no tiene cuenta. Esa
 ampliación es lo que permitirá a F4 ofrecer «Tess te crea la cuenta» sin
 reconciliar datos después.
 
+**Hallazgo posterior (resuelto en F3):** Con las políticas de `0006_rag_schema.sql` un visitante anónimo obtenía cero filas de RAG, ya que las políticas de `document_sections` exigían membresía de proyecto. La migración `0013_rag_visitor_policy.sql` resolvió esto habilitando la consulta vía `match_document_sections()` con verificación de la sesión del visitante.
+
 ---
 
-## F3 · RAG ⬜
+## F3 · RAG ✅
 
 **Objetivo.** Que Tess conteste **con la documentación del proyecto** y cite de
 dónde lo sacó.
 
-**Entrega prevista.**
+**Entregado.**
 
-- Supabase Storage para los archivos originales, con bucket privado por
-  organización.
-- `services/ingest-worker`: extracción de texto, chunking, embeddings vía AI
-  Gateway y escritura en `document_sections` y `document_embeddings`. **Fuera
-  de la petición interactiva**, nunca dentro del handler HTTP.
-- Recuperación vía `match_document_sections()`, que ya existe en
-  `0007_rag_fn.sql` y es `security invoker`: RLS aplica dentro de la función.
-- `assistant.source` empieza a emitirse. El evento ya está tipado desde F1; F3
-  solo pasa a producirlo.
-- `messages.sources` empieza a poblarse.
+- Supabase Storage (`tess-documents`) con RLS y subida exclusiva para miembros del proyecto.
+- `services/ingest-worker`: extracción de texto (PDF, Markdown, TXT), chunking jerárquico determinista, embeddings vía OpenRouter REST (`openai/text-embedding-3-small`, 1536 dimensiones) y persistencia en `document_sections` y `document_embeddings`. Fuera de la petición HTTP.
+- Recuperación vía `match_document_sections()` (`security invoker`), con RLS estricto multi-tenant y binding de visitante.
+- Emisión de `assistant.source` antes del primer `assistant.delta`.
+- `messages.sources` poblado con detalle de sección y documento.
+- Degradación elegante del chat ante fallos de embeddings con registro en `audit_events` (`rag.retrieval.failed`).
+- UI de citas dentro del mensaje en `@teams4soft/tess-web-component` accesible con `aria-live`.
+- Rate limiting de 30 mensajes / 5 minutos por conversación en el API.
+- Migraciones `0011`–`0014`: Storage, `visitor_sessions`, política RLS de RAG para visitantes y umbral de similitud.
 
-**Congela.** La forma de la cita y la estrategia de chunking.
+**Congela.** La forma de la cita (`MessageSource`), la estrategia de chunking, `EmbeddingProvider`, la firma de `match_document_sections` y el binding de sesión de visitante.
 
-**Gate.** Se sube un PDF, el worker lo procesa, y una pregunta devuelve
-respuesta con `assistant.source` apuntando al documento correcto. La búsqueda
-vectorial nunca cruza tenants, demostrado con un test que lo intenta.
+**Gate.** Cumplido (`pnpm gate:f3` y smoke test contra OpenRouter). 19/19 comprobaciones en verde; 350 tests pasando; bundle web component en 215.2 kB; comprobaciones estructurales `scripts/check-f3.mjs` limpias; smoke test manual con subida de PDF real (`smoke.pdf`), embedding de 1536 dimensiones registrado en base de datos, conversación streaming con citas exactas desde OpenRouter y degradación ante API key no válida auditada. Registro en `docs/superpowers/plans/2026-09-19-fase-3-gate.md`.
 
-**Condición heredada de F2, bloqueante antes de desplegar.**
-`projects_select_visitor` deja a cualquier autenticado enumerar los proyectos
-con `visitor_access` de todos los tenants. Entre las columnas de `projects` no
-hay secretos, pero con esa lista de `project_id` en la mano **un JWT anónimo
-acuñado desde el widget de un tenant sirve para abrir conversaciones y enviar
-mensajes en el proyecto de otro**: la validación de `Origin` y el rate limit
-guardan el minteo, no el uso posterior. Consecuencias: consumo del presupuesto
-de modelo de la víctima y conversaciones ajenas apareciendo a sus miembros.
+**Deuda que hereda F4 y F5.**
 
-No bloqueó la fusión de F2 porque esa fase corre solo en local, pero **no puede
-salir de local sin acotar la política**: atar el `select` al proyecto de la
-sesión, por ejemplo con un claim en el minteo o una tabla de sesiones de
-visitante. Es condición de entrada de F3, no un recordatorio.
-
-**Decisiones aplazadas a su spec.** Tamaño y solape del chunk; si el visitante
-anónimo puede consultar documentos o solo el miembro autenticado; reindexado al
-cambiar de modelo de embeddings; si la ingestión se dispara por webhook de
-Storage o por cola.
+1. `retry_count` y reencolado manual de documentos en `failed`: F3 hace un solo intento a propósito; queda para F5.
+2. El índice HNSW usa `m = 16, ef_construction = 64`, los valores por defecto de `0003`, sin haberlos medido con datos reales (F5).
+3. Durante una convivencia de dos modelos de embeddings, el filtro `e.model` se aplica después del recorrido del índice (F5).
+4. `EMBEDDING_DIMENSIONS` está clavado a 1536 por la columna y el índice; cambiar a una familia con otra dimensión exige migrar columna, índice, validaciones y RPC como fase propia.
+5. Política de proveedores de OpenRouter: falta la lista aprobada por escrito y la decisión sobre `zdr` (Zero Data Retention) antes de producción (F5).
 
 ---
 
@@ -271,10 +262,15 @@ válido en su estructura. Dos cosas se movieron:
    landings públicas, así que el interlocutor por defecto no tiene cuenta.
 2. **F2 absorbió la UI de chat.** F1 la dejó fuera explícitamente, a la espera
    de conocer la forma real del stream.
+3. **F3 sustituyó Vercel AI Gateway por OpenRouter por REST.** El adaptador con
+   embeddings (`@ai-sdk/gateway`) exigía `ai@7`, mientras que el monorepo
+   estaba en `ai@5`. Para evitar desestabilizar dependencias o forzar migraciones
+   prematuras, F3 llama a OpenRouter directamente vía API REST estándar,
+   eliminando además cualquier SDK propietario de IA del árbol de dependencias.
 
-Ninguna de las dos altera las fronteras entre fases. F2 sigue entregando
-«backend de chat»; solo resultó ser más grande de lo que el plan original
-suponía.
+Ninguna de las modificaciones altera las fronteras entre fases. F2 sigue
+entregando «backend de chat» y F3 «RAG con citas»; solo se ajustaron las
+herramientas y el alcance concreto de ejecución.
 
 ## Mantenimiento
 
