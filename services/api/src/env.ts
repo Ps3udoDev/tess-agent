@@ -47,6 +47,10 @@ const envSchema = z.object({
   // Atribución opcional en el panel de OpenRouter.
   OPENROUTER_HTTP_REFERER: z.string().optional(),
   OPENROUTER_APP_TITLE: z.string().default('Tess'),
+  // Sin este valor, OpenRouter reserva 65536 tokens para la respuesta, y una
+  // clave con límite de gasto rechaza la petición entera (visto en el
+  // preflight). El default es conservador para chat.
+  OPENROUTER_MAX_TOKENS: z.coerce.number().int().min(1).default(1024),
 
   EMBEDDING_DIMENSIONS: z.coerce
     .number()

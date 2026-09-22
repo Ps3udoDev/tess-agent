@@ -55,6 +55,17 @@ describe('loadEnv', () => {
     );
   });
 
+  it('por defecto OPENROUTER_MAX_TOKENS es 1024', () => {
+    const env = loadEnv(BASE);
+    expect(env.OPENROUTER_MAX_TOKENS).toBe(1024);
+  });
+
+  it('rechaza OPENROUTER_MAX_TOKENS en 0', () => {
+    // Sin max_tokens OpenRouter reserva 65536 y una clave con límite de
+    // gasto rechaza la petición entera; 0 tampoco es un valor válido.
+    expect(() => loadEnv({ ...BASE, OPENROUTER_MAX_TOKENS: '0' })).toThrow();
+  });
+
   it('acepta una configuración completa de openrouter', () => {
     const env = loadEnv({
       ...BASE,

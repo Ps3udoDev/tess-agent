@@ -12,6 +12,7 @@
  */
 import type { TessEnv } from '../env.js';
 import { createFakeModelProvider } from './model-provider.fake.js';
+import { createOpenRouterModelProvider } from './model-provider.openrouter.js';
 
 export interface ModelMessage {
   role: 'system' | 'user' | 'assistant';
@@ -40,10 +41,22 @@ export interface ModelProvider {
 /**
  * Selector por entorno.
  *
- * F3 retiró Vercel AI Gateway. La rama de OpenRouter la añade la Tarea 16,
- * cuando exista el proveedor al que cambiarse; hasta entonces `fake` es el
- * único cableado, que es lo que CI usa de todos modos.
+ * CI corre siempre con `fake`. La conversación real contra OpenRouter es un
+ * smoke test manual aparte, con MODEL_PROVIDER=openrouter.
  */
-export function createModelProvider(_env: TessEnv): ModelProvider {
-  return createFakeModelProvider();
+export function createModelProvider(env: TessEnv): ModelProvider {
+  if (env.MODEL_PROVIDER !== 'openrouter') return createFakeModelProvider();
+
+  // loadEnv ya garantiza ambos; los asserts son para el tipo.
+  if (!env.OPENROUTER_API_KEY || !env.OPENROUTER_CHAT_MODEL) {
+    throw new Error('MODEL_PROVIDER=openrouter requiere clave y modelo');
+  }
+
+  return createOpenRouterModelProvider({
+    apiKey: env.OPENROUTER_API_KEY,
+    model: env.OPENROUTER_CHAT_MODEL,
+    referer: env.OPENROUTER_HTTP_REFERER,
+    appTitle: env.OPENROUTER_APP_TITLE,
+    maxTokens: env.OPENROUTER_MAX_TOKENS,
+  });
 }
