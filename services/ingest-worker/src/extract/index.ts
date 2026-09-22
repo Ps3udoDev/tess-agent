@@ -12,11 +12,7 @@ import { extraerPdf } from './pdf.js';
 // cualquier fallo nativo de la librería (ver pdf.ts).
 export { PdfIlegibleError } from './pdf.js';
 
-export const MIMES_SOPORTADOS = [
-  'application/pdf',
-  'text/markdown',
-  'text/plain',
-] as const;
+export const MIMES_SOPORTADOS = ['application/pdf', 'text/markdown', 'text/plain'] as const;
 
 export class FormatoNoSoportadoError extends Error {
   constructor(mimeType: string) {
@@ -32,10 +28,7 @@ export class SinTextoError extends Error {
   }
 }
 
-export async function extraer(
-  buffer: Uint8Array,
-  mimeType: string,
-): Promise<string> {
+export async function extraer(buffer: Uint8Array, mimeType: string): Promise<string> {
   // El parámetro puede venir como `text/plain; charset=utf-8`.
   const tipo = mimeType.split(';')[0]!.trim().toLowerCase();
 

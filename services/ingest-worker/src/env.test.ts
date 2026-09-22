@@ -12,20 +12,16 @@ describe('loadWorkerEnv', () => {
   });
 
   it('openrouter exige la clave', () => {
-    expect(() =>
-      loadWorkerEnv({ ...BASE, EMBEDDING_PROVIDER: 'openrouter' }),
-    ).toThrow(/OPENROUTER_API_KEY/);
+    expect(() => loadWorkerEnv({ ...BASE, EMBEDDING_PROVIDER: 'openrouter' })).toThrow(
+      /OPENROUTER_API_KEY/,
+    );
   });
 
   it('rechaza una dimensión que no sea 1536', () => {
-    expect(() =>
-      loadWorkerEnv({ ...BASE, EMBEDDING_DIMENSIONS: '3072' }),
-    ).toThrow(/1536/);
+    expect(() => loadWorkerEnv({ ...BASE, EMBEDDING_DIMENSIONS: '3072' })).toThrow(/1536/);
   });
 
   it('el intervalo de sondeo tiene suelo', () => {
-    expect(() =>
-      loadWorkerEnv({ ...BASE, INGEST_POLL_INTERVAL_MS: '10' }),
-    ).toThrow();
+    expect(() => loadWorkerEnv({ ...BASE, INGEST_POLL_INTERVAL_MS: '10' })).toThrow();
   });
 });

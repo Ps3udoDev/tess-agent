@@ -39,10 +39,7 @@ export async function reclamarDocumento(
   };
 }
 
-export async function marcarListo(
-  client: SupabaseClient,
-  id: string,
-): Promise<void> {
+export async function marcarListo(client: SupabaseClient, id: string): Promise<void> {
   const { error } = await client
     .from('documents')
     .update({ status: 'ready', failure_reason: null })

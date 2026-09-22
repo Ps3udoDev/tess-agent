@@ -501,10 +501,7 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
     });
 
     it('un visitante del proyecto A NO puede enumerar el proyecto B', async () => {
-      const { data } = await clienteVisitante
-        .from('projects')
-        .select('id')
-        .eq('id', proyectoB);
+      const { data } = await clienteVisitante.from('projects').select('id').eq('id', proyectoB);
 
       expect(data ?? []).toHaveLength(0);
     });

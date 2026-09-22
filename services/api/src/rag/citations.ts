@@ -24,9 +24,7 @@ export interface FuentePersistida {
   title: string;
 }
 
-export function fuentesParaEmitir(
-  sections: RetrievedSection[],
-): FuenteEmitida[] {
+export function fuentesParaEmitir(sections: RetrievedSection[]): FuenteEmitida[] {
   const vistos = new Set<string>();
   const fuentes: FuenteEmitida[] = [];
 
@@ -44,9 +42,7 @@ export function fuentesParaEmitir(
   return fuentes;
 }
 
-export function fuentesParaPersistir(
-  sections: RetrievedSection[],
-): FuentePersistida[] {
+export function fuentesParaPersistir(sections: RetrievedSection[]): FuentePersistida[] {
   return sections.map((s) => ({
     documentId: s.documentId,
     sectionId: s.sectionId,

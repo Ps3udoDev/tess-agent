@@ -19,9 +19,7 @@ export interface PersistirInput {
   dimensions: number;
 }
 
-export async function persistirSecciones(
-  input: PersistirInput,
-): Promise<number> {
+export async function persistirSecciones(input: PersistirInput): Promise<number> {
   const { client, documento, chunks, vectores, model, dimensions } = input;
 
   if (chunks.length !== vectores.length) {
@@ -47,10 +45,7 @@ export async function persistirSecciones(
     .delete()
     .eq('document_id', documento.id);
 
-  if (errBorrar)
-    throw new Error(
-      `no se pudieron borrar las secciones: ${errBorrar.message}`,
-    );
+  if (errBorrar) throw new Error(`no se pudieron borrar las secciones: ${errBorrar.message}`);
 
   if (chunks.length === 0) return 0;
 
@@ -64,44 +59,35 @@ export async function persistirSecciones(
         ordinal: c.ordinal,
         content: c.content,
         token_count: c.tokenCount,
-        metadata:
-          c.headingPath.length > 0 ? { heading_path: c.headingPath } : {},
+        metadata: c.headingPath.length > 0 ? { heading_path: c.headingPath } : {},
       })),
     )
     .select('id, ordinal');
 
-  if (errSecciones)
-    throw new Error(
-      `no se pudieron escribir secciones: ${errSecciones.message}`,
-    );
+  if (errSecciones) throw new Error(`no se pudieron escribir secciones: ${errSecciones.message}`);
 
   // El insert no garantiza el orden de vuelta: se mapea por `ordinal`.
   const idPorOrdinal = new Map<number, string>(
     (insertadas ?? []).map((f) => [f.ordinal as number, f.id as string]),
   );
 
-  const { error: errEmbeddings } = await client
-    .from('document_embeddings')
-    .insert(
-      chunks.map((c, i) => {
-        const sectionId = idPorOrdinal.get(c.ordinal);
-        if (!sectionId)
-          throw new Error(`falta el id de la sección ${c.ordinal}`);
+  const { error: errEmbeddings } = await client.from('document_embeddings').insert(
+    chunks.map((c, i) => {
+      const sectionId = idPorOrdinal.get(c.ordinal);
+      if (!sectionId) throw new Error(`falta el id de la sección ${c.ordinal}`);
 
-        return {
-          section_id: sectionId,
-          organization_id: documento.organizationId,
-          project_id: documento.projectId,
-          embedding: vectores[i]!,
-          model,
-        };
-      }),
-    );
+      return {
+        section_id: sectionId,
+        organization_id: documento.organizationId,
+        project_id: documento.projectId,
+        embedding: vectores[i]!,
+        model,
+      };
+    }),
+  );
 
   if (errEmbeddings) {
-    throw new Error(
-      `no se pudieron escribir embeddings: ${errEmbeddings.message}`,
-    );
+    throw new Error(`no se pudieron escribir embeddings: ${errEmbeddings.message}`);
   }
 
   return chunks.length;

@@ -46,9 +46,7 @@ export interface OpenRouterModelOptions {
   fetchImpl?: typeof fetch | undefined;
 }
 
-export function createOpenRouterModelProvider(
-  options: OpenRouterModelOptions,
-): ModelProvider {
+export function createOpenRouterModelProvider(options: OpenRouterModelOptions): ModelProvider {
   const llamar = options.fetchImpl ?? fetch;
 
   return {

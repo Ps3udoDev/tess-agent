@@ -4,10 +4,7 @@ import { createFakeEmbeddingProvider } from '@teams4soft/tess-embeddings';
 
 const embedder = createFakeEmbeddingProvider();
 
-function clienteConRpc(respuesta: {
-  data?: unknown;
-  error?: { message: string };
-}) {
+function clienteConRpc(respuesta: { data?: unknown; error?: { message: string } }) {
   return { rpc: vi.fn(async () => respuesta) } as never;
 }
 
@@ -58,9 +55,7 @@ describe('retrieve', () => {
       data: [{ ...fila, project_id: 'proj-de-otro-tenant' }],
     });
 
-    await expect(retrieve({ ...base, client })).rejects.toThrow(
-      /otro proyecto/,
-    );
+    await expect(retrieve({ ...base, client })).rejects.toThrow(/otro proyecto/);
   });
 
   it('pasa el modelo del embedder como p_model', async () => {
@@ -69,9 +64,8 @@ describe('retrieve', () => {
     const client = clienteConRpc({ data: [] });
     await retrieve({ ...base, client });
 
-    const [nombre, args] = (
-      client as unknown as { rpc: ReturnType<typeof vi.fn> }
-    ).rpc.mock.calls[0]!;
+    const [nombre, args] = (client as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc.mock
+      .calls[0]!;
 
     expect(nombre).toBe('match_document_sections');
     expect(args.p_model).toBe(embedder.model);
@@ -83,15 +77,11 @@ describe('retrieve', () => {
 
   it('cero resultados es una lista vacía, no un error', async () => {
     // Pasa constantemente: un saludo no tiene nada que recuperar.
-    expect(
-      await retrieve({ ...base, client: clienteConRpc({ data: [] }) }),
-    ).toEqual([]);
+    expect(await retrieve({ ...base, client: clienteConRpc({ data: [] }) })).toEqual([]);
   });
 
   it('data null es una lista vacía', async () => {
-    expect(
-      await retrieve({ ...base, client: clienteConRpc({ data: null }) }),
-    ).toEqual([]);
+    expect(await retrieve({ ...base, client: clienteConRpc({ data: null }) })).toEqual([]);
   });
 
   it('un error de la RPC se propaga para que el llamante pueda degradar', async () => {
@@ -106,8 +96,6 @@ describe('retrieve', () => {
   it('una pregunta vacía no llama a la RPC', async () => {
     const client = clienteConRpc({ data: [] });
     expect(await retrieve({ ...base, question: '   ', client })).toEqual([]);
-    expect(
-      (client as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc,
-    ).not.toHaveBeenCalled();
+    expect((client as unknown as { rpc: ReturnType<typeof vi.fn> }).rpc).not.toHaveBeenCalled();
   });
 });

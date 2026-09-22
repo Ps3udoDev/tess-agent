@@ -18,8 +18,7 @@ function comoStream(sse: string, trozos = 1): ReadableStream<Uint8Array> {
 
 async function recoger(sse: string, trozos = 1) {
   const salida = [];
-  for await (const chunk of leerStreamOpenRouter(comoStream(sse, trozos)))
-    salida.push(chunk);
+  for await (const chunk of leerStreamOpenRouter(comoStream(sse, trozos))) salida.push(chunk);
   return salida;
 }
 
@@ -28,9 +27,7 @@ const delta = (texto: string, model = 'anthropic/claude-sonnet-5') =>
 
 describe('leerStreamOpenRouter', () => {
   it('extrae el texto de choices[0].delta.content', async () => {
-    const chunks = await recoger(
-      `${delta('Hola')}${delta(' mundo')}data: [DONE]\n\n`,
-    );
+    const chunks = await recoger(`${delta('Hola')}${delta(' mundo')}data: [DONE]\n\n`);
     expect(chunks.map((c) => c.texto).join('')).toBe('Hola mundo');
   });
 
@@ -67,9 +64,7 @@ describe('leerStreamOpenRouter', () => {
   });
 
   it('termina en [DONE] y no intenta parsearlo', async () => {
-    await expect(
-      recoger(`${delta('x')}data: [DONE]\n\n`),
-    ).resolves.toBeDefined();
+    await expect(recoger(`${delta('x')}data: [DONE]\n\n`)).resolves.toBeDefined();
   });
 
   it('reensambla eventos partidos entre dos trozos de red', async () => {
@@ -83,9 +78,7 @@ describe('leerStreamOpenRouter', () => {
   });
 
   it('expone el modelo que respondió de verdad', async () => {
-    const chunks = await recoger(
-      `${delta('x', 'openai/gpt-4o')}data: [DONE]\n\n`,
-    );
+    const chunks = await recoger(`${delta('x', 'openai/gpt-4o')}data: [DONE]\n\n`);
     expect(chunks[0]!.model).toBe('openai/gpt-4o');
   });
 

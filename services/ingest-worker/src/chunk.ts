@@ -149,8 +149,7 @@ export function chunk(texto: string): Chunk[] {
     };
 
     for (const pieza of piezas) {
-      const candidato =
-        acumulado.length === 0 ? pieza : `${acumulado}\n\n${pieza}`;
+      const candidato = acumulado.length === 0 ? pieza : `${acumulado}\n\n${pieza}`;
 
       if (estimarTokens(candidato) > MAX_TOKENS && acumulado.length > 0) {
         emitir();

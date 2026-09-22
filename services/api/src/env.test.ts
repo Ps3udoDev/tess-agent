@@ -16,9 +16,7 @@ describe('loadEnv', () => {
   });
 
   it('MODEL_PROVIDER=openrouter exige clave y modelo de chat', () => {
-    expect(() => loadEnv({ ...BASE, MODEL_PROVIDER: 'openrouter' })).toThrow(
-      /OPENROUTER/,
-    );
+    expect(() => loadEnv({ ...BASE, MODEL_PROVIDER: 'openrouter' })).toThrow(/OPENROUTER/);
   });
 
   it('EMBEDDING_PROVIDER=openrouter exige la clave', () => {
@@ -50,9 +48,7 @@ describe('loadEnv', () => {
     // La columna es vector(1536) y el índice HNSW está construido sobre ella.
     // Un valor distinto no es configuración: es un error que se manifestaría
     // como inserts rechazados en producción.
-    expect(() => loadEnv({ ...BASE, EMBEDDING_DIMENSIONS: '768' })).toThrow(
-      /1536/,
-    );
+    expect(() => loadEnv({ ...BASE, EMBEDDING_DIMENSIONS: '768' })).toThrow(/1536/);
   });
 
   it('por defecto OPENROUTER_MAX_TOKENS es 1024', () => {

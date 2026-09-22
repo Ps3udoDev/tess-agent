@@ -50,10 +50,7 @@ describe('persistirSecciones', () => {
       persistirSecciones({
         client: clienteFalso(),
         documento,
-        chunks: [
-          ...chunks,
-          { ordinal: 1, content: 'dos', tokenCount: 1, headingPath: [] },
-        ],
+        chunks: [...chunks, { ordinal: 1, content: 'dos', tokenCount: 1, headingPath: [] }],
         vectores: [new Array(1536).fill(0.1)],
         model: 'm',
         dimensions: 1536,
@@ -82,17 +79,11 @@ describe('sanearRazon', () => {
   });
 
   it('borra rutas de Windows y de contenedor', () => {
-    expect(sanearRazon(new Error('falló en C:\\Users\\x\\app.js'))).toContain(
-      '<ruta>',
-    );
-    expect(sanearRazon(new Error('falló en /app/dist/main.js'))).toContain(
-      '<ruta>',
-    );
+    expect(sanearRazon(new Error('falló en C:\\Users\\x\\app.js'))).toContain('<ruta>');
+    expect(sanearRazon(new Error('falló en /app/dist/main.js'))).toContain('<ruta>');
   });
 
   it('acota la longitud', () => {
-    expect(sanearRazon(new Error('x'.repeat(1000))).length).toBeLessThanOrEqual(
-      300,
-    );
+    expect(sanearRazon(new Error('x'.repeat(1000))).length).toBeLessThanOrEqual(300);
   });
 });

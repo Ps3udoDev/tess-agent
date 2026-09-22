@@ -14,9 +14,7 @@ describe('chunk', () => {
   });
 
   it('un documento corto es una sola sección', () => {
-    const secciones = chunk(
-      'Teams4Soft ofrece migración y soporte gestionado.',
-    );
+    const secciones = chunk('Teams4Soft ofrece migración y soporte gestionado.');
     expect(secciones).toHaveLength(1);
     expect(secciones[0]!.ordinal).toBe(0);
     expect(secciones[0]!.content).toContain('migración');
@@ -74,21 +72,15 @@ describe('chunk', () => {
   });
 
   it('secciones contiguas del mismo bloque se solapan', () => {
-    const texto = [
-      parrafoDe(400, 'alfa'),
-      parrafoDe(400, 'beta'),
-      parrafoDe(400, 'gamma'),
-    ].join('\n\n');
+    const texto = [parrafoDe(400, 'alfa'), parrafoDe(400, 'beta'), parrafoDe(400, 'gamma')].join(
+      '\n\n',
+    );
     const secciones = chunk(texto);
 
     expect(secciones.length).toBeGreaterThan(1);
 
     // El final de una sección reaparece al principio de la siguiente.
-    const colaDePrimera = secciones[0]!.content
-      .trim()
-      .split(/\s+/)
-      .slice(-5)
-      .join(' ');
+    const colaDePrimera = secciones[0]!.content.trim().split(/\s+/).slice(-5).join(' ');
     expect(secciones[1]!.content).toContain(colaDePrimera);
   });
 
@@ -107,14 +99,7 @@ describe('chunk', () => {
   });
 
   it('no produce secciones vacías ni solo de espacios', () => {
-    const texto = [
-      '# Vacío',
-      '',
-      '',
-      '# Con texto',
-      '',
-      'Aquí sí hay algo.',
-    ].join('\n');
+    const texto = ['# Vacío', '', '', '# Con texto', '', 'Aquí sí hay algo.'].join('\n');
     for (const seccion of chunk(texto)) {
       expect(seccion.content.trim().length).toBeGreaterThan(0);
     }
@@ -125,8 +110,8 @@ describe('estimarTokens', () => {
   it('crece con la longitud y nunca es cero para texto no vacío', () => {
     expect(estimarTokens('')).toBe(0);
     expect(estimarTokens('una')).toBeGreaterThan(0);
-    expect(
-      estimarTokens('una frase bastante más larga que la anterior'),
-    ).toBeGreaterThan(estimarTokens('una'));
+    expect(estimarTokens('una frase bastante más larga que la anterior')).toBeGreaterThan(
+      estimarTokens('una'),
+    );
   });
 });

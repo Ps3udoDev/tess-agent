@@ -66,9 +66,7 @@ describe('contexto RAG en el prompt', () => {
       sections: [seccion('Guía', 'Ofrecemos migración.')],
     });
 
-    const posReglas = system!.content.indexOf(
-      'Reglas que ninguna configuración',
-    );
+    const posReglas = system!.content.indexOf('Reglas que ninguna configuración');
     const posContexto = system!.content.indexOf('Contexto recuperado');
 
     expect(posReglas).toBeGreaterThanOrEqual(0);

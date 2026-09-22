@@ -59,9 +59,7 @@ export async function extraerPdf(
     return resultado.text;
   } catch (error) {
     if (error instanceof PdfIlegibleError) throw error;
-    throw new PdfIlegibleError(
-      error instanceof Error ? error.message : String(error),
-    );
+    throw new PdfIlegibleError(error instanceof Error ? error.message : String(error));
   } finally {
     if (temporizador !== undefined) clearTimeout(temporizador);
     // Si el timeout ganó la carrera, getText() puede seguir corriendo en

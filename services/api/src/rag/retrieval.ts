@@ -46,9 +46,7 @@ interface FilaRpc {
   similarity: number;
 }
 
-export async function retrieve(
-  input: RetrieveInput,
-): Promise<RetrievedSection[]> {
+export async function retrieve(input: RetrieveInput): Promise<RetrievedSection[]> {
   if (input.question.trim().length === 0) return [];
 
   const embedding = await input.embedder.embed(input.question, input.signal);
@@ -91,9 +89,7 @@ export async function retrieve(
   const ajenas = secciones.filter((s) => s.projectId !== input.projectId);
 
   if (ajenas.length > 0) {
-    throw new Error(
-      `la recuperación devolvió ${ajenas.length} sección(es) de otro proyecto`,
-    );
+    throw new Error(`la recuperación devolvió ${ajenas.length} sección(es) de otro proyecto`);
   }
 
   return secciones;

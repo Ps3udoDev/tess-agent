@@ -11,9 +11,7 @@ import { z } from 'zod';
 const DIMENSIONES_DEL_ESQUEMA = 1536;
 
 const envSchema = z.object({
-  NODE_ENV: z
-    .enum(['development', 'test', 'staging', 'production'])
-    .default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().default(8081),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
@@ -24,16 +22,10 @@ const envSchema = z.object({
 
   EMBEDDING_PROVIDER: z.enum(['fake', 'openrouter']).default('fake'),
   OPENROUTER_API_KEY: z.string().optional(),
-  OPENROUTER_EMBEDDING_MODEL: z
-    .string()
-    .min(1)
-    .default('openai/text-embedding-3-small'),
+  OPENROUTER_EMBEDDING_MODEL: z.string().min(1).default('openai/text-embedding-3-small'),
   OPENROUTER_HTTP_REFERER: z.string().optional(),
   OPENROUTER_APP_TITLE: z.string().default('Tess'),
-  EMBEDDING_DIMENSIONS: z.coerce
-    .number()
-    .int()
-    .default(DIMENSIONES_DEL_ESQUEMA),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().default(DIMENSIONES_DEL_ESQUEMA),
 
   DOCUMENTS_BUCKET: z.string().default('tess-documents'),
   INGEST_POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(5000),
@@ -41,9 +33,7 @@ const envSchema = z.object({
 
 export type WorkerEnv = z.infer<typeof envSchema>;
 
-export function loadWorkerEnv(
-  source: NodeJS.ProcessEnv = process.env,
-): WorkerEnv {
+export function loadWorkerEnv(source: NodeJS.ProcessEnv = process.env): WorkerEnv {
   const parsed = envSchema.safeParse(source);
 
   if (!parsed.success) {
@@ -54,9 +44,7 @@ export function loadWorkerEnv(
   const env = parsed.data;
 
   if (env.EMBEDDING_PROVIDER === 'openrouter' && !env.OPENROUTER_API_KEY) {
-    throw new Error(
-      'EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY',
-    );
+    throw new Error('EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY');
   }
 
   if (env.EMBEDDING_DIMENSIONS !== DIMENSIONES_DEL_ESQUEMA) {

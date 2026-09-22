@@ -56,9 +56,7 @@ function vectorizar(texto: string, dimensiones: number): number[] {
   return vector.map((v) => v / norma);
 }
 
-export function createFakeEmbeddingProvider(
-  dimensiones = DIMENSIONES,
-): EmbeddingProvider {
+export function createFakeEmbeddingProvider(dimensiones = DIMENSIONES): EmbeddingProvider {
   return {
     model: MODELO,
     dimensions: dimensiones,

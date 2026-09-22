@@ -163,10 +163,7 @@ export async function documentsRoute(app: FastifyInstance): Promise<void> {
       } catch (error) {
         // La fila existe y el archivo no: el worker lo reclamaría y fallaría
         // al descargarlo. Se cierra aquí, con una razón clara.
-        app.log.error(
-          { err: (error as Error).message, documentId },
-          'fallo al subir a Storage',
-        );
+        app.log.error({ err: (error as Error).message, documentId }, 'fallo al subir a Storage');
 
         // Con service_role: 0015 no da `update` a `authenticated` (un
         // miembro podría marcar su propio documento como 'ready').

@@ -559,12 +559,8 @@ La Fase 3 puede aprobarse después de incorporar este cambio de configuración y
 
 ## Referencias oficiales
 
-[1]: https://openrouter.ai/docs/quickstart "OpenRouter Quickstart"
-
-[2]: https://openrouter.ai/docs/api_reference/embeddings "OpenRouter Embeddings API"
-
-[3]: https://openrouter.ai/docs/guides/routing/model-fallbacks "OpenRouter Model Fallbacks"
-
-[4]: https://openrouter.ai/docs/guides/routing/provider-selection "OpenRouter Provider Routing"
-
-[5]: https://openrouter.ai/docs/guides/community/vercel-ai-sdk "OpenRouter with Vercel AI SDK"
+[1]: https://openrouter.ai/docs/quickstart 'OpenRouter Quickstart'
+[2]: https://openrouter.ai/docs/api_reference/embeddings 'OpenRouter Embeddings API'
+[3]: https://openrouter.ai/docs/guides/routing/model-fallbacks 'OpenRouter Model Fallbacks'
+[4]: https://openrouter.ai/docs/guides/routing/provider-selection 'OpenRouter Provider Routing'
+[5]: https://openrouter.ai/docs/guides/community/vercel-ai-sdk 'OpenRouter with Vercel AI SDK'

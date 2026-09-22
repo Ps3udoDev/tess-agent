@@ -19,8 +19,7 @@ export function construirBloqueContexto(sections: RetrievedSection[]): string {
   if (sections.length === 0) return '';
 
   const fuentes = sections.map(
-    (s, i) =>
-      `[${i + 1}] ${s.documentTitle} · sección ${s.ordinal}\n${s.content}`,
+    (s, i) => `[${i + 1}] ${s.documentTitle} · sección ${s.ordinal}\n${s.content}`,
   );
 
   return `${CABECERA}\n\n${fuentes.join('\n\n')}`;

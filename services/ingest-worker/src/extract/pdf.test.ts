@@ -32,9 +32,7 @@ describe('extraerPdf (doble de pdf-parse)', () => {
     getTextMock.mockReturnValue(new Promise(() => {}));
 
     const inicio = Date.now();
-    await expect(extraerPdf(new Uint8Array(), 30)).rejects.toBeInstanceOf(
-      PdfIlegibleError,
-    );
+    await expect(extraerPdf(new Uint8Array(), 30)).rejects.toBeInstanceOf(PdfIlegibleError);
     // Muy por debajo de EXTRACCION_PDF_TIMEOUT_MS (60_000): prueba que se
     // usó el timeoutMs inyectado, no el valor por defecto.
     expect(Date.now() - inicio).toBeLessThan(1000);
@@ -44,17 +42,13 @@ describe('extraerPdf (doble de pdf-parse)', () => {
   it('si getText() rechaza con un error nativo de pdf.js, lo envuelve en PdfIlegibleError con el motivo', async () => {
     getTextMock.mockRejectedValue(new Error('Invalid PDF structure.'));
 
-    await expect(extraerPdf(new Uint8Array(), 5000)).rejects.toThrow(
-      /Invalid PDF structure/,
-    );
+    await expect(extraerPdf(new Uint8Array(), 5000)).rejects.toThrow(/Invalid PDF structure/);
   });
 
   it('si getText() resuelve con texto, lo devuelve y libera el parser', async () => {
     getTextMock.mockResolvedValue({ text: 'contenido', pages: [], total: 1 });
 
-    await expect(extraerPdf(new Uint8Array(), 5000)).resolves.toBe(
-      'contenido',
-    );
+    await expect(extraerPdf(new Uint8Array(), 5000)).resolves.toBe('contenido');
     expect(destroyMock).toHaveBeenCalledTimes(1);
   });
 });

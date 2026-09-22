@@ -2,10 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createOpenRouterModelProvider } from './model-provider.openrouter.js';
 import type { ModelCallMetadata } from './model-provider.js';
 
-function streamSse(
-  sse: string,
-  headers: Record<string, string> = {},
-): Response {
+function streamSse(sse: string, headers: Record<string, string> = {}): Response {
   return new Response(
     new ReadableStream({
       start(controller) {
@@ -58,9 +55,7 @@ describe('createOpenRouterModelProvider', () => {
     // documentación privada del cliente.
     // Tipado explícito: sin él, TS infiere los parámetros del mock a partir
     // del callback (sin argumentos) y `mock.calls[0]` queda como tupla vacía.
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      streamSse(`${delta('x')}data: [DONE]\n\n`),
-    );
+    const fetchImpl = vi.fn<typeof fetch>(async () => streamSse(`${delta('x')}data: [DONE]\n\n`));
     const provider = createOpenRouterModelProvider({ ...BASE, fetchImpl });
 
     await recoger(
@@ -70,9 +65,7 @@ describe('createOpenRouterModelProvider', () => {
       }),
     );
 
-    const cuerpo = JSON.parse(
-      (fetchImpl.mock.calls[0]![1] as RequestInit).body as string,
-    );
+    const cuerpo = JSON.parse((fetchImpl.mock.calls[0]![1] as RequestInit).body as string);
 
     expect(cuerpo.stream).toBe(true);
     expect(cuerpo.model).toBe('anthropic/claude-sonnet-5');
@@ -86,9 +79,7 @@ describe('createOpenRouterModelProvider', () => {
   it('manda max_tokens con el valor pasado', async () => {
     // OpenRouter reserva 65536 tokens si no recibe max_tokens, y una clave
     // con límite de gasto rechaza la petición entera. Ver env.ts.
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      streamSse(`${delta('x')}data: [DONE]\n\n`),
-    );
+    const fetchImpl = vi.fn<typeof fetch>(async () => streamSse(`${delta('x')}data: [DONE]\n\n`));
     const provider = createOpenRouterModelProvider({
       ...BASE,
       maxTokens: 2048,
@@ -102,9 +93,7 @@ describe('createOpenRouterModelProvider', () => {
       }),
     );
 
-    const cuerpo = JSON.parse(
-      (fetchImpl.mock.calls[0]![1] as RequestInit).body as string,
-    );
+    const cuerpo = JSON.parse((fetchImpl.mock.calls[0]![1] as RequestInit).body as string);
 
     expect(cuerpo.max_tokens).toBe(2048);
   });
@@ -137,9 +126,7 @@ describe('createOpenRouterModelProvider', () => {
   it('deja de emitir en cuanto se aborta', async () => {
     const controller = new AbortController();
     const fetchImpl = vi.fn(async () =>
-      streamSse(
-        `${delta('uno')}${delta('dos')}${delta('tres')}data: [DONE]\n\n`,
-      ),
+      streamSse(`${delta('uno')}${delta('dos')}${delta('tres')}data: [DONE]\n\n`),
     );
     const provider = createOpenRouterModelProvider({ ...BASE, fetchImpl });
 
@@ -168,9 +155,7 @@ describe('createOpenRouterModelProvider', () => {
     await expect(
       recoger(
         provider.stream({
-          messages: [
-            { role: 'user', content: 'dato confidencial del cliente' },
-          ],
+          messages: [{ role: 'user', content: 'dato confidencial del cliente' }],
           signal: new AbortController().signal,
         }),
       ),
@@ -178,9 +163,7 @@ describe('createOpenRouterModelProvider', () => {
   });
 
   it('manda la credencial en la cabecera y nunca en la URL', async () => {
-    const fetchImpl = vi.fn<typeof fetch>(async () =>
-      streamSse(`${delta('x')}data: [DONE]\n\n`),
-    );
+    const fetchImpl = vi.fn<typeof fetch>(async () => streamSse(`${delta('x')}data: [DONE]\n\n`));
     const provider = createOpenRouterModelProvider({ ...BASE, fetchImpl });
 
     await recoger(

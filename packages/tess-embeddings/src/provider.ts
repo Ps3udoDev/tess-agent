@@ -36,9 +36,7 @@ export interface EmbeddingProviderEnv {
  * CI corre siempre con `fake`. La ingestión real contra OpenRouter es un smoke
  * test manual aparte, con EMBEDDING_PROVIDER=openrouter.
  */
-export function createEmbeddingProvider(
-  env: EmbeddingProviderEnv,
-): EmbeddingProvider {
+export function createEmbeddingProvider(env: EmbeddingProviderEnv): EmbeddingProvider {
   if (env.EMBEDDING_PROVIDER !== 'openrouter') {
     return createFakeEmbeddingProvider(env.EMBEDDING_DIMENSIONS);
   }
@@ -46,9 +44,7 @@ export function createEmbeddingProvider(
   // loadWorkerEnv ya garantiza que la clave existe; este assert es para el
   // tipo, no para la validación.
   if (!env.OPENROUTER_API_KEY) {
-    throw new Error(
-      'EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY',
-    );
+    throw new Error('EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY');
   }
 
   return createOpenRouterEmbeddingProvider({

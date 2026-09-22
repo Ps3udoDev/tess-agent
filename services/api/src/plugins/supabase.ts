@@ -97,10 +97,7 @@ async function plugin(app: FastifyInstance): Promise<void> {
    */
   app.decorate(
     'mintVisitorSession',
-    async (input: {
-      projectId: string;
-      organizationId: string;
-    }): Promise<VisitorSession> => {
+    async (input: { projectId: string; organizationId: string }): Promise<VisitorSession> => {
       const mintClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
         auth: { persistSession: false, autoRefreshToken: false },
       });

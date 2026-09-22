@@ -122,12 +122,7 @@ export const assistantStateSchema = z.enum(ASSISTANT_STATES);
 // -----------------------------------------------------------------------------
 
 /** Refleja el enum `public.document_status` de 0003. */
-export const documentStatusSchema = z.enum([
-  'pending',
-  'processing',
-  'ready',
-  'failed',
-]);
+export const documentStatusSchema = z.enum(['pending', 'processing', 'ready', 'failed']);
 
 export const documentSummarySchema = z.object({
   id: z.uuid(),

@@ -40,25 +40,25 @@ Un contrato congelado no se renegocia. Puede **ensancharse de forma aditiva**
 —añadir un campo opcional, un método opcional, un endpoint nuevo— pero no
 cambiar de forma ni de significado.
 
-| Contrato                                          | Se congela en | Lo consume                            | Dónde vive                                                      |
-| ------------------------------------------------- | ------------- | ------------------------------------- | --------------------------------------------------------------- |
-| `AssistantState` — 7 estados                      | **F1** ✅     | F2 vía SSE, F4                        | `packages/tess-types/src/assistant.ts`                          |
-| Atributos, métodos y eventos del web component    | **F1** ✅     | todas                                 | `packages/tess-web-component/src/element.ts`                    |
-| `AssistantStreamEvent` — 5 eventos                | **F1** ✅     | F2 lo produce, F3 emite `source`      | `packages/tess-types/src/events.ts`                             |
-| Contrato del `.riv` — 3 triggers, 4 booleanos     | **F1** ✅     | solo `tess-rive`                      | `packages/tess-rive/src/contract.ts`                            |
-| Esquema Supabase base — 12 tablas + RLS           | pre-F1 ✅     | F2, F3, F4                            | `supabase/migrations/0001`–`0007`                               |
-| `TessClientLike` — cliente HTTP/SSE               | **F2** ✅     | F3, F4                                | `packages/tess-types/src/client.ts`                             |
-| Modelo de identidad — visitante, usuario, miembro | **F2** ✅     | F3, F4, F5                            | `supabase/migrations/0008`–`0010`                               |
-| Esquemas zod de la API                            | **F2** ✅     | F3, F4                                | `packages/tess-types/src/api.ts`                                |
-| `ModelProvider` — interfaz de streaming           | **F2** ✅     | F3 le añade contexto, F4 herramientas | `services/api/src/agent/model-provider.ts`                      |
-| Secuencia de eventos SSE                          | **F2** ✅     | F3, F4                                | `packages/tess-types/src/events.ts`                             |
-| Forma de las citas — `messages.sources`           | **F3** ✅     | F4, panel admin                       | `packages/tess-types/src/client.ts` y `0004_chat_schema.sql`   |
-| Estrategia de chunking                            | **F3** ✅     | worker de ingesta                     | `services/ingest-worker/src/chunk.ts`                           |
-| `EmbeddingProvider` — vectorización               | **F3** ✅     | API y worker                          | `packages/tess-embeddings/src/provider.ts`                      |
-| Firma de `match_document_sections`                | **F3** ✅     | API Fastify                           | `supabase/migrations/0007_rag_fn.sql` (actualizada en 0013/0014)|
-| Binding de sesión de visitante                    | **F3** ✅     | RLS en Supabase                       | `supabase/migrations/0012_visitor_sessions.sql`                 |
-| Allowlist de herramientas MCP                     | **F4**        | F5                                    | `assistant_configs.enabled_tools` (ya existe)                   |
-| Formato de `audit_events.metadata`                | **F4**        | F5                                    | `supabase/migrations/0005` (tabla ya existe)                    |
+| Contrato                                          | Se congela en | Lo consume                            | Dónde vive                                                       |
+| ------------------------------------------------- | ------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| `AssistantState` — 7 estados                      | **F1** ✅     | F2 vía SSE, F4                        | `packages/tess-types/src/assistant.ts`                           |
+| Atributos, métodos y eventos del web component    | **F1** ✅     | todas                                 | `packages/tess-web-component/src/element.ts`                     |
+| `AssistantStreamEvent` — 5 eventos                | **F1** ✅     | F2 lo produce, F3 emite `source`      | `packages/tess-types/src/events.ts`                              |
+| Contrato del `.riv` — 3 triggers, 4 booleanos     | **F1** ✅     | solo `tess-rive`                      | `packages/tess-rive/src/contract.ts`                             |
+| Esquema Supabase base — 12 tablas + RLS           | pre-F1 ✅     | F2, F3, F4                            | `supabase/migrations/0001`–`0007`                                |
+| `TessClientLike` — cliente HTTP/SSE               | **F2** ✅     | F3, F4                                | `packages/tess-types/src/client.ts`                              |
+| Modelo de identidad — visitante, usuario, miembro | **F2** ✅     | F3, F4, F5                            | `supabase/migrations/0008`–`0010`                                |
+| Esquemas zod de la API                            | **F2** ✅     | F3, F4                                | `packages/tess-types/src/api.ts`                                 |
+| `ModelProvider` — interfaz de streaming           | **F2** ✅     | F3 le añade contexto, F4 herramientas | `services/api/src/agent/model-provider.ts`                       |
+| Secuencia de eventos SSE                          | **F2** ✅     | F3, F4                                | `packages/tess-types/src/events.ts`                              |
+| Forma de las citas — `messages.sources`           | **F3** ✅     | F4, panel admin                       | `packages/tess-types/src/client.ts` y `0004_chat_schema.sql`     |
+| Estrategia de chunking                            | **F3** ✅     | worker de ingesta                     | `services/ingest-worker/src/chunk.ts`                            |
+| `EmbeddingProvider` — vectorización               | **F3** ✅     | API y worker                          | `packages/tess-embeddings/src/provider.ts`                       |
+| Firma de `match_document_sections`                | **F3** ✅     | API Fastify                           | `supabase/migrations/0007_rag_fn.sql` (actualizada en 0013/0014) |
+| Binding de sesión de visitante                    | **F3** ✅     | RLS en Supabase                       | `supabase/migrations/0012_visitor_sessions.sql`                  |
+| Allowlist de herramientas MCP                     | **F4**        | F5                                    | `assistant_configs.enabled_tools` (ya existe)                    |
+| Formato de `audit_events.metadata`                | **F4**        | F5                                    | `supabase/migrations/0005` (tabla ya existe)                     |
 
 ### Contratos que el esquema ya reserva
 

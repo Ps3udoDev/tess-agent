@@ -32,10 +32,7 @@ export function createOpenRouterEmbeddingProvider(
 ): EmbeddingProvider {
   const llamar = options.fetchImpl ?? fetch;
 
-  async function embedMany(
-    input: string[],
-    signal?: AbortSignal,
-  ): Promise<number[][]> {
+  async function embedMany(input: string[], signal?: AbortSignal): Promise<number[][]> {
     if (input.length === 0) return [];
 
     const headers: Record<string, string> = {
@@ -60,9 +57,7 @@ export function createOpenRouterEmbeddingProvider(
     const cuerpo = (await respuesta.json()) as RespuestaEmbeddings;
 
     if (cuerpo.error) {
-      throw new Error(
-        `OpenRouter embeddings: ${cuerpo.error.message ?? 'error sin mensaje'}`,
-      );
+      throw new Error(`OpenRouter embeddings: ${cuerpo.error.message ?? 'error sin mensaje'}`);
     }
 
     const filas = cuerpo.data ?? [];
@@ -81,8 +76,7 @@ export function createOpenRouterEmbeddingProvider(
       const indice = fila.index ?? posicion;
       const vector = fila.embedding;
 
-      if (!vector)
-        throw new Error('respuesta incompleta: una fila sin embedding');
+      if (!vector) throw new Error('respuesta incompleta: una fila sin embedding');
 
       // Validar que el índice sea un entero dentro del rango [0, input.length)
       if (!Number.isInteger(indice) || indice < 0 || indice >= input.length) {
@@ -93,9 +87,7 @@ export function createOpenRouterEmbeddingProvider(
 
       // Validar que no hay índices duplicados
       if (vistos.has(indice)) {
-        throw new Error(
-          `respuesta incompleta: índice ${indice} duplicado`,
-        );
+        throw new Error(`respuesta incompleta: índice ${indice} duplicado`);
       }
       vistos.add(indice);
 

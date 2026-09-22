@@ -228,8 +228,13 @@ interface OpcionesEnvio {
  * y captura opcional de auditorías, de lo persistido y de lo logueado.
  */
 async function enviarMensaje(opciones: OpcionesEnvio = {}): Promise<EventoSse[]> {
-  const { secciones = [], fallaRecuperacion = false, auditorias, persistidos, lineasDeLog } =
-    opciones;
+  const {
+    secciones = [],
+    fallaRecuperacion = false,
+    auditorias,
+    persistidos,
+    lineasDeLog,
+  } = opciones;
 
   if (fallaRecuperacion) {
     vi.mocked(retrieve).mockRejectedValueOnce(new Error('fallo simulado de recuperación'));
@@ -468,9 +473,7 @@ describe('RAG en el stream', () => {
       secciones: [seccion, { ...seccion, sectionId: 'sec-2', ordinal: 1 }],
     });
 
-    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(
-      1,
-    );
+    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(1);
   });
 
   it('la fuente lleva título y documentId, sin sectionId', async () => {
@@ -487,9 +490,7 @@ describe('RAG en el stream', () => {
     // Pasa constantemente: un saludo no tiene nada que recuperar.
     const eventos = await enviarMensaje({ secciones: [] });
 
-    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(
-      0,
-    );
+    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(0);
     expect(eventos.some((e) => e.event === 'assistant.completed')).toBe(true);
   });
 
@@ -500,9 +501,7 @@ describe('RAG en el stream', () => {
 
     expect(eventos.some((e) => e.event === 'assistant.error')).toBe(false);
     expect(eventos.some((e) => e.event === 'assistant.completed')).toBe(true);
-    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(
-      0,
-    );
+    expect(eventos.filter((e) => e.event === 'assistant.source')).toHaveLength(0);
   });
 
   it('un fallo de recuperación queda auditado', async () => {
@@ -735,12 +734,8 @@ describe('rate limit de mensajes', () => {
       env: { MESSAGE_LIMIT: 1, MESSAGE_WINDOW_SECONDS: 60 },
     });
 
-    expect(
-      (await enviarPeticion(app, { conversationId: 'conv-a' })).statusCode,
-    ).toBe(200);
-    expect(
-      (await enviarPeticion(app, { conversationId: 'conv-b' })).statusCode,
-    ).toBe(200);
+    expect((await enviarPeticion(app, { conversationId: 'conv-a' })).statusCode).toBe(200);
+    expect((await enviarPeticion(app, { conversationId: 'conv-b' })).statusCode).toBe(200);
 
     await app.close();
   });

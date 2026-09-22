@@ -19,10 +19,7 @@ import { authPlugin } from './plugins/auth.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
 import { corsPlugin } from './plugins/cors.js';
 import { createModelProvider, type ModelProvider } from './agent/model-provider.js';
-import {
-  createEmbeddingProvider,
-  type EmbeddingProvider,
-} from '@teams4soft/tess-embeddings';
+import { createEmbeddingProvider, type EmbeddingProvider } from '@teams4soft/tess-embeddings';
 
 export interface AppOverrides {
   env?: Partial<TessEnv> | undefined;

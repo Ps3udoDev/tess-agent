@@ -19,10 +19,7 @@ import { sendMessageRequestSchema } from '@teams4soft/tess-types/api';
 import { resolveProject } from '../domain/conversations/resolve-project.js';
 import { createSseWriter } from '../domain/assistant-events/sse-writer.js';
 import { componerMensajes } from '../agent/prompt.js';
-import type {
-  ModelMessage,
-  ModelCallMetadata,
-} from '../agent/model-provider.js';
+import type { ModelMessage, ModelCallMetadata } from '../agent/model-provider.js';
 import { retrieve, type RetrievedSection } from '../rag/retrieval.js';
 import { fuentesParaEmitir, fuentesParaPersistir } from '../rag/citations.js';
 

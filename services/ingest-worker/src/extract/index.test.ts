@@ -22,8 +22,7 @@ function construirPdfValido(texto: string): Uint8Array {
   const obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
   const obj3 =
     '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n';
-  const obj4 =
-    '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
+  const obj4 = '4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n';
   const contenido = `BT /F1 24 Tf 20 100 Td (${texto}) Tj ET`;
   const obj5 = `5 0 obj\n<< /Length ${contenido.length} >>\nstream\n${contenido}\nendstream\nendobj\n`;
 
@@ -52,39 +51,31 @@ function construirPdfValido(texto: string): Uint8Array {
 
 describe('extraer', () => {
   it('devuelve el texto de un .txt tal cual', async () => {
-    const texto = await extraer(
-      codificar('Hola desde un archivo de texto.'),
-      'text/plain',
-    );
+    const texto = await extraer(codificar('Hola desde un archivo de texto.'), 'text/plain');
     expect(texto).toContain('archivo de texto');
   });
 
   it('devuelve el Markdown sin convertirlo', async () => {
     // Los encabezados se conservan a propósito: chunk() los usa para no cruzar
     // fronteras de sección.
-    const texto = await extraer(
-      codificar('# Servicios\n\nMigración a la nube.'),
-      'text/markdown',
-    );
+    const texto = await extraer(codificar('# Servicios\n\nMigración a la nube.'), 'text/markdown');
     expect(texto).toContain('# Servicios');
   });
 
   it('rechaza un mime no soportado con un error tipado', async () => {
-    await expect(
-      extraer(codificar('x'), 'application/zip'),
-    ).rejects.toBeInstanceOf(FormatoNoSoportadoError);
-  });
-
-  it('el mensaje del formato no soportado nombra el formato', async () => {
-    await expect(extraer(codificar('x'), 'application/zip')).rejects.toThrow(
-      /application\/zip/,
+    await expect(extraer(codificar('x'), 'application/zip')).rejects.toBeInstanceOf(
+      FormatoNoSoportadoError,
     );
   });
 
+  it('el mensaje del formato no soportado nombra el formato', async () => {
+    await expect(extraer(codificar('x'), 'application/zip')).rejects.toThrow(/application\/zip/);
+  });
+
   it('un archivo sin texto extraíble da SinTextoError', async () => {
-    await expect(
-      extraer(codificar('   \n  \n '), 'text/plain'),
-    ).rejects.toBeInstanceOf(SinTextoError);
+    await expect(extraer(codificar('   \n  \n '), 'text/plain')).rejects.toBeInstanceOf(
+      SinTextoError,
+    );
   });
 
   it('la lista de mimes soportados es la del spec', () => {
@@ -112,8 +103,6 @@ describe('extraer', () => {
     const basura = new Uint8Array(200);
     for (let i = 0; i < basura.length; i++) basura[i] = (i * 37 + 11) % 256;
 
-    await expect(extraerPdf(basura, 200)).rejects.toBeInstanceOf(
-      PdfIlegibleError,
-    );
+    await expect(extraerPdf(basura, 200)).rejects.toBeInstanceOf(PdfIlegibleError);
   });
 });

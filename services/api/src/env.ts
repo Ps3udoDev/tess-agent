@@ -18,9 +18,7 @@ import { z } from 'zod';
 const DIMENSIONES_DEL_ESQUEMA = 1536;
 
 const envSchema = z.object({
-  NODE_ENV: z
-    .enum(['development', 'test', 'staging', 'production'])
-    .default('development'),
+  NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().default(8080),
   HOST: z.string().default('0.0.0.0'),
   LOG_LEVEL: z.string().default('info'),
@@ -40,10 +38,7 @@ const envSchema = z.object({
   // servicios caigan en el mismo valor por omisión es lo que impide que un
   // despliegue olvidadizo los desincronice, que es el fallo que de verdad
   // duele. `.min(1)` porque un `.default()` no intercepta la cadena vacía.
-  OPENROUTER_EMBEDDING_MODEL: z
-    .string()
-    .min(1)
-    .default('openai/text-embedding-3-small'),
+  OPENROUTER_EMBEDDING_MODEL: z.string().min(1).default('openai/text-embedding-3-small'),
   // Atribución opcional en el panel de OpenRouter.
   OPENROUTER_HTTP_REFERER: z.string().optional(),
   OPENROUTER_APP_TITLE: z.string().default('Tess'),
@@ -52,10 +47,7 @@ const envSchema = z.object({
   // preflight). El default es conservador para chat.
   OPENROUTER_MAX_TOKENS: z.coerce.number().int().min(1).default(1024),
 
-  EMBEDDING_DIMENSIONS: z.coerce
-    .number()
-    .int()
-    .default(DIMENSIONES_DEL_ESQUEMA),
+  EMBEDDING_DIMENSIONS: z.coerce.number().int().default(DIMENSIONES_DEL_ESQUEMA),
   RAG_MATCH_COUNT: z.coerce.number().int().min(1).max(50).default(8),
   RAG_SIMILARITY_THRESHOLD: z.coerce.number().min(0).max(1).default(0.5),
 
@@ -86,17 +78,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): TessEnv {
       throw new Error('MODEL_PROVIDER=openrouter requiere OPENROUTER_API_KEY');
     }
     if (!env.OPENROUTER_CHAT_MODEL) {
-      throw new Error(
-        'MODEL_PROVIDER=openrouter requiere OPENROUTER_CHAT_MODEL',
-      );
+      throw new Error('MODEL_PROVIDER=openrouter requiere OPENROUTER_CHAT_MODEL');
     }
   }
 
   if (env.EMBEDDING_PROVIDER === 'openrouter') {
     if (!env.OPENROUTER_API_KEY) {
-      throw new Error(
-        'EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY',
-      );
+      throw new Error('EMBEDDING_PROVIDER=openrouter requiere OPENROUTER_API_KEY');
     }
     // No se comprueba el modelo de embeddings: tiene default, así que nunca
     // puede faltar. La cadena vacía la rechaza el `.min(1)` del esquema.
@@ -104,13 +92,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): TessEnv {
 
   // Caza solo el error más tonto, pero es gratis: un modelo de chat en el
   // endpoint de embeddings no falla de forma legible.
-  if (
-    env.OPENROUTER_CHAT_MODEL &&
-    env.OPENROUTER_CHAT_MODEL === env.OPENROUTER_EMBEDDING_MODEL
-  ) {
-    throw new Error(
-      'OPENROUTER_CHAT_MODEL debe ser distinto de OPENROUTER_EMBEDDING_MODEL',
-    );
+  if (env.OPENROUTER_CHAT_MODEL && env.OPENROUTER_CHAT_MODEL === env.OPENROUTER_EMBEDDING_MODEL) {
+    throw new Error('OPENROUTER_CHAT_MODEL debe ser distinto de OPENROUTER_EMBEDDING_MODEL');
   }
 
   if (env.EMBEDDING_DIMENSIONS !== DIMENSIONES_DEL_ESQUEMA) {

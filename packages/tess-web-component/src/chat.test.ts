@@ -163,9 +163,7 @@ describe('citas', () => {
     vista.commitStreaming();
 
     const mensajes = document.querySelectorAll('[part="message"]');
-    expect(
-      mensajes[mensajes.length - 1]!.querySelector('[part="sources"]'),
-    ).toBeNull();
+    expect(mensajes[mensajes.length - 1]!.querySelector('[part="sources"]')).toBeNull();
   });
 
   it('las citas van DENTRO del mensaje, no en una región viva aparte', () => {
@@ -185,12 +183,8 @@ describe('citas', () => {
   it('append pinta las fuentes del historial recargado', () => {
     const vista = montarChat();
 
-    vista.append('assistant', 'Respuesta previa.', [
-      { title: 'Guía', documentId: 'doc-1' },
-    ]);
+    vista.append('assistant', 'Respuesta previa.', [{ title: 'Guía', documentId: 'doc-1' }]);
 
-    expect(document.querySelector('[part="sources"]')!.textContent).toContain(
-      'Guía',
-    );
+    expect(document.querySelector('[part="sources"]')!.textContent).toContain('Guía');
   });
 });

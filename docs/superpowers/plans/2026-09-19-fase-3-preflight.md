@@ -4,16 +4,16 @@ Fecha de verificación: 2026-09-22
 
 ## Resultados
 
-| Comprobación                               | Resultado                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------------------- |
-| Cuenta con saldo                           | Sí                                                                        |
-| Clave de desarrollo con límite de gasto    | Sí — el límite es bajo: rechaza peticiones que pidan más de ~4000 tokens  |
-| `openai/text-embedding-3-small` disponible | Sí (la respuesta lo nombra `text-embedding-3-small`, sin prefijo)         |
-| Dimensiones devueltas                      | **1536**                                                                  |
-| Modelo de chat fijado                      | `anthropic/claude-sonnet-5`                                               |
-| Streaming SSE funciona                     | Sí: líneas `data: {...}` con `choices[0].delta` y cierre `data: [DONE]`   |
-| Aparecen líneas `: OPENROUTER PROCESSING`  | **Sí**, intercaladas entre los `data:`                                    |
-| Alerta de presupuesto configurada          | Pendiente de confirmar en el panel de OpenRouter                          |
+| Comprobación                               | Resultado                                                                |
+| ------------------------------------------ | ------------------------------------------------------------------------ |
+| Cuenta con saldo                           | Sí                                                                       |
+| Clave de desarrollo con límite de gasto    | Sí — el límite es bajo: rechaza peticiones que pidan más de ~4000 tokens |
+| `openai/text-embedding-3-small` disponible | Sí (la respuesta lo nombra `text-embedding-3-small`, sin prefijo)        |
+| Dimensiones devueltas                      | **1536**                                                                 |
+| Modelo de chat fijado                      | `anthropic/claude-sonnet-5`                                              |
+| Streaming SSE funciona                     | Sí: líneas `data: {...}` con `choices[0].delta` y cierre `data: [DONE]`  |
+| Aparecen líneas `: OPENROUTER PROCESSING`  | **Sí**, intercaladas entre los `data:`                                   |
+| Alerta de presupuesto configurada          | Pendiente de confirmar en el panel de OpenRouter                         |
 
 ## Hallazgo: sin `max_tokens` la petición de chat falla
 

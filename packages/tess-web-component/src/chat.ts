@@ -28,11 +28,7 @@ export interface ChatSource {
 
 export interface ChatView {
   mount(): void;
-  append(
-    role: 'user' | 'assistant',
-    content: string,
-    fuentes?: ChatSource[],
-  ): void;
+  append(role: 'user' | 'assistant', content: string, fuentes?: ChatSource[]): void;
   beginStreaming(): void;
   pushDelta(texto: string): void;
   pushSource(fuente: ChatSource): void;
@@ -50,10 +46,7 @@ export interface ChatView {
  * el mensaje entero, el lector anuncia texto y fuentes de una vez y en orden.
  * Si vivieran en una región viva propia se anunciarían sueltas y sin contexto.
  */
-function construirFuentes(
-  fuentes: ChatSource[],
-  etiqueta: string,
-): HTMLElement | null {
+function construirFuentes(fuentes: ChatSource[], etiqueta: string): HTMLElement | null {
   if (fuentes.length === 0) return null;
 
   const contenedor = document.createElement('div');

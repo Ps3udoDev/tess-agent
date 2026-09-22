@@ -53,10 +53,7 @@ function clienteFalso(
           }),
           then: undefined,
         }),
-        update: (valores: {
-          status: string;
-          failure_reason?: string | null;
-        }) => {
+        update: (valores: { status: string; failure_reason?: string | null }) => {
           if (tabla === 'documents') estados.push(valores);
 
           const falla =
@@ -65,9 +62,7 @@ function clienteFalso(
 
           return {
             eq: async () => ({
-              error: falla
-                ? { message: 'no se pudo actualizar documents' }
-                : null,
+              error: falla ? { message: 'no se pudo actualizar documents' } : null,
             }),
           };
         },
@@ -85,9 +80,7 @@ const base = {
 
 describe('procesarDocumento', () => {
   it('un Markdown válido acaba en ready con sus secciones', async () => {
-    const { client, estados } = clienteFalso(
-      '# Servicios\n\nMigración a la nube.',
-    );
+    const { client, estados } = clienteFalso('# Servicios\n\nMigración a la nube.');
 
     const resultado = await procesarDocumento({ ...base, client, documento });
 
@@ -178,8 +171,7 @@ describe('procesarDocumento', () => {
 
     expect(
       llamadasNuevas.some(
-        ([, msg]) =>
-          msg === 'no se pudo marcar el documento como fallido; queda en processing',
+        ([, msg]) => msg === 'no se pudo marcar el documento como fallido; queda en processing',
       ),
     ).toBe(true);
 
@@ -215,9 +207,7 @@ describe('procesarDocumento', () => {
     ];
 
     // Se registró el fallo al procesar (marcarListo lanzó dentro del try).
-    expect(
-      llamadasNuevas.some(([, msg]) => msg === 'fallo al procesar documento'),
-    ).toBe(true);
+    expect(llamadasNuevas.some(([, msg]) => msg === 'fallo al procesar documento')).toBe(true);
 
     // Ningún log de esta llamada lleva contenido del documento, solo ids/razón.
     for (const llamada of llamadasNuevas) {

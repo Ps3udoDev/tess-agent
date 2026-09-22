@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fuentesParaEmitir, fuentesParaPersistir } from './citations.js';
 
-const seccion = (
-  documentId: string,
-  documentTitle: string,
-  ordinal: number,
-) => ({
+const seccion = (documentId: string, documentTitle: string, ordinal: number) => ({
   sectionId: `sec-${documentId}-${ordinal}`,
   documentId,
   documentTitle,
@@ -67,11 +63,7 @@ describe('fuentesParaPersistir', () => {
 
   it('usa la forma que documenta la columna sources de 0004', () => {
     const [fuente] = fuentesParaPersistir([seccion('doc-1', 'Guía', 0)]);
-    expect(Object.keys(fuente!).sort()).toEqual([
-      'documentId',
-      'sectionId',
-      'title',
-    ]);
+    expect(Object.keys(fuente!).sort()).toEqual(['documentId', 'sectionId', 'title']);
   });
 
   it('cero secciones, lista vacía', () => {

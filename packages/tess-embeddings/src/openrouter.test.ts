@@ -39,10 +39,7 @@ describe('createOpenRouterEmbeddingProvider', () => {
     const url = args[0];
     const init = args[1];
     expect(url).toBe('https://openrouter.ai/api/v1/embeddings');
-    expect(JSON.parse(init.body as string).input).toEqual([
-      'uno',
-      'dos',
-    ]);
+    expect(JSON.parse(init.body as string).input).toEqual(['uno', 'dos']);
   });
 
   it('reordena por index y no confía en el orden de llegada', async () => {
@@ -80,9 +77,7 @@ describe('createOpenRouterEmbeddingProvider', () => {
     );
 
     const provider = createOpenRouterEmbeddingProvider({ ...BASE, fetchImpl });
-    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(
-      /incompleta/,
-    );
+    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(/incompleta/);
   });
 
   it('manda la credencial y la atribución en las cabeceras', async () => {
@@ -108,17 +103,13 @@ describe('createOpenRouterEmbeddingProvider', () => {
   });
 
   it('un error HTTP se propaga sin filtrar el texto enviado', async () => {
-    const fetchImpl = vi.fn(async () =>
-      respuesta({ error: { message: 'rate limited' } }, 429),
-    );
+    const fetchImpl = vi.fn(async () => respuesta({ error: { message: 'rate limited' } }, 429));
 
     const provider = createOpenRouterEmbeddingProvider({ ...BASE, fetchImpl });
-    await expect(
-      provider.embed('texto confidencial del cliente'),
-    ).rejects.toThrow(/429/);
-    await expect(
-      provider.embed('texto confidencial del cliente'),
-    ).rejects.not.toThrow(/confidencial/);
+    await expect(provider.embed('texto confidencial del cliente')).rejects.toThrow(/429/);
+    await expect(provider.embed('texto confidencial del cliente')).rejects.not.toThrow(
+      /confidencial/,
+    );
   });
 
   it('una lista vacía no llama a la red', async () => {
@@ -140,9 +131,7 @@ describe('createOpenRouterEmbeddingProvider', () => {
     );
 
     const provider = createOpenRouterEmbeddingProvider({ ...BASE, fetchImpl });
-    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(
-      /incompleta/,
-    );
+    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(/incompleta/);
   });
 
   it('rechaza un index duplicado', async () => {
@@ -156,8 +145,6 @@ describe('createOpenRouterEmbeddingProvider', () => {
     );
 
     const provider = createOpenRouterEmbeddingProvider({ ...BASE, fetchImpl });
-    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(
-      /incompleta/,
-    );
+    await expect(provider.embedMany(['uno', 'dos'])).rejects.toThrow(/incompleta/);
   });
 });

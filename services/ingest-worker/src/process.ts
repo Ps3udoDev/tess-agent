@@ -37,9 +37,7 @@ export interface ResultadoProceso {
   razon?: string;
 }
 
-export async function procesarDocumento(
-  input: ProcesarInput,
-): Promise<ResultadoProceso> {
+export async function procesarDocumento(input: ProcesarInput): Promise<ResultadoProceso> {
   const { client, documento, embedder, bucket, dimensions, log } = input;
 
   try {
@@ -52,23 +50,15 @@ export async function procesarDocumento(
       .download(documento.storagePath);
 
     if (errDescarga || !blob) {
-      throw new Error(
-        `no se pudo descargar: ${errDescarga?.message ?? 'sin contenido'}`,
-      );
+      throw new Error(`no se pudo descargar: ${errDescarga?.message ?? 'sin contenido'}`);
     }
 
     const buffer = new Uint8Array(await blob.arrayBuffer());
-    const texto = await extraer(
-      buffer,
-      documento.mimeType ?? 'application/octet-stream',
-    );
+    const texto = await extraer(buffer, documento.mimeType ?? 'application/octet-stream');
     const secciones = chunk(texto);
 
     // El texto de las secciones NO va al log: es contenido del cliente.
-    log.info(
-      { documentId: documento.id, secciones: secciones.length },
-      'documento troceado',
-    );
+    log.info({ documentId: documento.id, secciones: secciones.length }, 'documento troceado');
 
     const vectores = await embedder.embedMany(secciones.map((s) => s.content));
 
@@ -92,10 +82,7 @@ export async function procesarDocumento(
   } catch (error) {
     const razon = sanearRazon(error);
 
-    log.error(
-      { documentId: documento.id, razon },
-      'fallo al procesar documento',
-    );
+    log.error({ documentId: documento.id, razon }, 'fallo al procesar documento');
 
     try {
       await marcarFallido(client, documento.id, razon);
