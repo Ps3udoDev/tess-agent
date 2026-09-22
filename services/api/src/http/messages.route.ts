@@ -5,17 +5,26 @@
  *   1. insertar el mensaje del usuario con SU cliente
  *   2. rellenar el título si la conversación no lo tenía
  *   3. emitir thinking
- *   4. leer historial y componer el prompt
+ *   3b. RECUPERAR contexto. Si falla, se degrada: se contesta sin contexto y
+ *       sin citas, y el fallo queda en el log y en audit_events. Una respuesta
+ *       genérica es mejor producto que un error.
+ *   4. leer historial y componer el prompt CON el contexto
+ *   4b. emitir assistant.source, una por documento, antes de arrancar el modelo
  *   5. arrancar el modelo; AL PRIMER DELTA emitir speaking
  *   6. emitir deltas y acumular
- *   7. persistir la respuesta con service_role y emitir completed
+ *   7. persistir la respuesta con service_role, CON sources, y emitir completed
  */
 import type { FastifyInstance } from 'fastify';
 import { sendMessageRequestSchema } from '@teams4soft/tess-types/api';
 import { resolveProject } from '../domain/conversations/resolve-project.js';
 import { createSseWriter } from '../domain/assistant-events/sse-writer.js';
 import { componerMensajes } from '../agent/prompt.js';
-import type { ModelMessage } from '../agent/model-provider.js';
+import type {
+  ModelMessage,
+  ModelCallMetadata,
+} from '../agent/model-provider.js';
+import { retrieve, type RetrievedSection } from '../rag/retrieval.js';
+import { fuentesParaEmitir, fuentesParaPersistir } from '../rag/citations.js';
 
 const HEARTBEAT_MS = 15_000;
 const TITULO_MAX = 80;
@@ -139,10 +148,44 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
 
       const inicio = Date.now();
       let acumulado = '';
+      let metadatosModelo: ModelCallMetadata | undefined;
 
       try {
         // 3.
         writer.send({ event: 'assistant.state', data: { state: 'thinking' } });
+
+        // 3b. Degradación deliberada: un fallo aquí no puede romper el chat.
+        //
+        // El precio de degradar es que el fallo es INVISIBLE para el cliente,
+        // así que la auditoría no es decorativa: es lo único que lo hace
+        // visible para nosotros.
+        let secciones: RetrievedSection[] = [];
+
+        try {
+          secciones = await retrieve({
+            client,
+            projectId: proyecto.projectId,
+            question: parsed.data.content,
+            embedder: app.embedder,
+            matchCount: app.env.RAG_MATCH_COUNT,
+            threshold: app.env.RAG_SIMILARITY_THRESHOLD,
+            signal: controller.signal,
+          });
+        } catch (error) {
+          app.log.error(
+            { err: (error as Error).message, projectId: proyecto.projectId },
+            'fallo en la recuperación; se responde sin contexto',
+          );
+
+          // IDs y códigos, nunca la pregunta ni el contenido recuperado.
+          await app.recordAuditEvent({
+            organizationId: proyecto.organizationId,
+            projectId: proyecto.projectId,
+            actorId: request.auth.userId,
+            action: 'rag.retrieval.failed',
+            metadata: { model: app.embedder.model },
+          });
+        }
 
         const mensajes = componerMensajes({
           systemPrompt: config?.system_prompt ?? null,
@@ -153,12 +196,22 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
             (conversacion.locale as string | undefined) ??
             config?.locale ??
             undefined,
+          sections: secciones,
         });
+
+        // 4b. Antes de arrancar el modelo: el usuario ve el origen mientras la
+        // respuesta se escribe, que es cuando le sirve.
+        for (const fuente of fuentesParaEmitir(secciones)) {
+          writer.send({ event: 'assistant.source', data: fuente });
+        }
 
         // 5 y 6.
         for await (const delta of app.modelProvider.stream({
           messages: mensajes,
           signal: controller.signal,
+          onMetadata: (meta) => {
+            metadatosModelo = meta;
+          },
         })) {
           if (writer.closed) break;
 
@@ -183,7 +236,29 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
           projectId: proyecto.projectId,
           content: acumulado,
           latencyMs: Date.now() - inicio,
+          sources: fuentesParaPersistir(secciones),
         });
+
+        // IDs, códigos y volúmenes. Nunca el prompt, el texto de la respuesta
+        // ni el contenido de los documentos: esa es la misma regla que ya
+        // aplica recordAuditEvent.
+        app.log.info(
+          {
+            provider: metadatosModelo?.provider,
+            requestedModel: metadatosModelo?.requestedModel,
+            actualModel: metadatosModelo?.actualModel,
+            requestId: metadatosModelo?.requestId,
+            fallbackUsed:
+              metadatosModelo !== undefined &&
+              metadatosModelo.actualModel !== metadatosModelo.requestedModel,
+            embeddingModel: app.embedder.model,
+            retrievedSections: secciones.length,
+            retrievedDocuments: fuentesParaEmitir(secciones).length,
+            latencyMs: Date.now() - inicio,
+            projectId: proyecto.projectId,
+          },
+          'turno completado',
+        );
 
         writer.send({
           event: 'assistant.completed',
