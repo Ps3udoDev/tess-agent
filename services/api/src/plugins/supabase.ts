@@ -16,6 +16,7 @@
  *   - escribir audit_events               · sin política de insert
  *   - leer project_widget_settings        · se lee antes de que exista el JWT
  *   - leer assistant_configs              · el prompt no debe ser legible vía RLS
+ *   - subir a Storage                     · bucket privado, lo lee el worker
  */
 import fp from 'fastify-plugin';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -275,6 +276,33 @@ async function plugin(app: FastifyInstance): Promise<void> {
     },
   );
 
+  /**
+   * Subida al bucket privado.
+   *
+   * Con service_role porque el bucket es privado y el worker tiene que poder
+   * leerlo después con la misma credencial. La AUTORIZACIÓN no está aquí: está
+   * en el `insert` sobre `documents`, que va con el JWT del miembro y que RLS
+   * evalúa con is_project_member. Si ese insert falla, este archivo no se sube.
+   */
+  app.decorate(
+    'subirDocumento',
+    async (input: {
+      bucket: string;
+      path: string;
+      contenido: Buffer;
+      contentType: string;
+    }): Promise<void> => {
+      const { error } = await serviceClient.storage
+        .from(input.bucket)
+        .upload(input.path, input.contenido, {
+          contentType: input.contentType,
+          upsert: false,
+        });
+
+      if (error) throw new Error(`no se pudo subir el documento: ${error.message}`);
+    },
+  );
+
   app.decorate('listWidgetOrigins', async (): Promise<string[]> => {
     const { data } = await serviceClient
       .from('project_widget_settings')
@@ -302,5 +330,11 @@ declare module 'fastify' {
     readWidgetSettingsByProject(projectId: string): Promise<WidgetSettings | null>;
     readAssistantConfig(projectId: string): Promise<AssistantConfig | null>;
     listWidgetOrigins(): Promise<string[]>;
+    subirDocumento(input: {
+      bucket: string;
+      path: string;
+      contenido: Buffer;
+      contentType: string;
+    }): Promise<void>;
   }
 }

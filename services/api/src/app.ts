@@ -6,12 +6,14 @@
  */
 import Fastify, { type FastifyBaseLogger, type FastifyInstance } from 'fastify';
 import sensible from '@fastify/sensible';
+import multipart from '@fastify/multipart';
 import { loadEnv, type TessEnv } from './env.js';
 import { healthRoute } from './http/health.route.js';
 import { visitorSessionsRoute } from './http/visitor-sessions.route.js';
 import { conversationsRoute } from './http/conversations.route.js';
 import { leadsRoute } from './http/leads.route.js';
 import { messagesRoute } from './http/messages.route.js';
+import { documentsRoute } from './http/documents.route.js';
 import { supabasePlugin } from './plugins/supabase.js';
 import { authPlugin } from './plugins/auth.js';
 import { rateLimitPlugin } from './plugins/rate-limit.js';
@@ -49,6 +51,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   app.decorate('modelProvider', overrides.modelProvider ?? createModelProvider(env));
   app.decorate('embedder', overrides.embedder ?? createEmbeddingProvider(env));
   await app.register(sensible);
+  await app.register(multipart);
   await app.register(supabasePlugin);
   await app.register(authPlugin);
   await app.register(rateLimitPlugin);
@@ -58,6 +61,7 @@ export async function buildApp(overrides: AppOverrides = {}): Promise<FastifyIns
   await app.register(conversationsRoute);
   await app.register(leadsRoute);
   await app.register(messagesRoute);
+  await app.register(documentsRoute);
 
   return app;
 }

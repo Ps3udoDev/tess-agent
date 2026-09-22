@@ -18,6 +18,7 @@
   "dependencies": {
     "@fastify/cors": "catalog:",
     "@fastify/helmet": "catalog:",
+    "@fastify/multipart": "catalog:",
     "@fastify/rate-limit": "catalog:",
     "@fastify/sensible": "catalog:",
     "@sentry/node": "catalog:",
