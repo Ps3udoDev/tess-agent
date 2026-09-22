@@ -381,6 +381,13 @@ export class TessAssistantElement extends BaseElement {
             this.#chat.pushDelta(evento.data.text);
             break;
 
+          case 'assistant.source':
+            this.#chat.pushSource({
+              title: evento.data.title,
+              documentId: evento.data.documentId,
+            });
+            break;
+
           case 'assistant.completed': {
             const completo = this.#chat.commitStreamingAndRead();
             this.#chat.setStatus(null);
@@ -398,7 +405,6 @@ export class TessAssistantElement extends BaseElement {
             this.#emit('tess:error', { code: evento.data.code, message: evento.data.message });
             break;
 
-          // assistant.source llega en F3. Se ignora sin romper nada.
           default:
             break;
         }
@@ -533,7 +539,16 @@ export class TessAssistantElement extends BaseElement {
 
     try {
       const previos = await this.#client.listMessages?.(this.#conversationId);
-      for (const m of previos ?? []) this.#chat.append(m.role, m.content);
+      for (const m of previos ?? []) {
+        this.#chat.append(
+          m.role,
+          m.content,
+          (m.sources ?? []).map((s) => ({
+            title: s.title,
+            documentId: s.documentId,
+          })),
+        );
+      }
     } catch (error) {
       // 404 (proyecto/conversación ya no existe) o 401 (sesión reacuñada,
       // el id ya no es de este visitante): el id guardado no sirve, se

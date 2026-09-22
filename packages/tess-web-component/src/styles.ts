@@ -80,4 +80,17 @@ export const STYLES = `
   }
   :host([position$='left']) dialog[part='dialog'] { right: auto; left: 0; }
   dialog[part='dialog']:not([open]) { display: none; }
+
+  [part='sources'] {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    opacity: 0.8;
+  }
+  [part='sources'] ul {
+    margin: 0.125rem 0 0;
+    padding-left: 1.1rem;
+  }
+  [part='source'] {
+    overflow-wrap: anywhere;
+  }
 `;
