@@ -172,19 +172,28 @@ export async function messagesRoute(app: FastifyInstance): Promise<void> {
             signal: controller.signal,
           });
         } catch (error) {
-          app.log.error(
-            { err: (error as Error).message, projectId: proyecto.projectId },
-            'fallo en la recuperación; se responde sin contexto',
-          );
+          // Quien cierra la pestaña mientras `embed()` está en vuelo aborta
+          // `retrieve` con la MISMA señal que ya usamos para el cierre
+          // normal (ver el listener de 'close' más arriba). Eso no es un
+          // fallo de RAG: es la misma vía de salida que el resto de la ruta
+          // ya respeta con `writer.closed`. Auditarlo como
+          // `rag.retrieval.failed` ensuciaría la única señal que tenemos de
+          // fallos reales.
+          if (!controller.signal.aborted) {
+            app.log.error(
+              { err: (error as Error).message, projectId: proyecto.projectId },
+              'fallo en la recuperación; se responde sin contexto',
+            );
 
-          // IDs y códigos, nunca la pregunta ni el contenido recuperado.
-          await app.recordAuditEvent({
-            organizationId: proyecto.organizationId,
-            projectId: proyecto.projectId,
-            actorId: request.auth.userId,
-            action: 'rag.retrieval.failed',
-            metadata: { model: app.embedder.model },
-          });
+            // IDs y códigos, nunca la pregunta ni el contenido recuperado.
+            await app.recordAuditEvent({
+              organizationId: proyecto.organizationId,
+              projectId: proyecto.projectId,
+              actorId: request.auth.userId,
+              action: 'rag.retrieval.failed',
+              metadata: { model: app.embedder.model },
+            });
+          }
         }
 
         const mensajes = componerMensajes({

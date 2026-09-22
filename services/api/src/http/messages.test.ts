@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { FastifyBaseLogger } from 'fastify';
+import type { FastifyBaseLogger, FastifyRequest } from 'fastify';
 import { buildApp } from '../app.js';
 import { createFakeModelProvider } from '../agent/model-provider.fake.js';
 import type { ModelMessage, ModelProvider } from '../agent/model-provider.js';
@@ -512,6 +512,61 @@ describe('RAG en el stream', () => {
     await enviarMensaje({ fallaRecuperacion: true, auditorias });
 
     expect(auditorias.map((a) => a.action)).toContain('rag.retrieval.failed');
+  });
+
+  it('un abort durante la recuperación NO se audita como fallo real', async () => {
+    // Ronda de corrección 1: si el cliente cierra la pestaña mientras
+    // `embed()` está en vuelo, `retrieve` rechaza con la MISMA señal que la
+    // ruta ya usaba para el cierre normal. Eso no es un fallo de RAG, y
+    // audit_events es la única señal de fallos reales: si el abort la
+    // ensucia, deja de servir para nada.
+    const auditorias: Array<{ action: string }> = [];
+
+    // Necesitamos el `request` real de esta petición para simular, desde
+    // dentro del doble de `retrieve`, el mismo evento 'close' que dispara el
+    // cierre de pestaña —no hay otro gancho reutilizable de F2 para esto, así
+    // que este es el mínimo determinista: un hook de Fastify que capture la
+    // request en vuelo, y el propio doble de `retrieve` cerrándola antes de
+    // rechazar, tal como pasaría si el cliente se desconectara a mitad del
+    // `embed()`.
+    let requestActual: FastifyRequest | undefined;
+
+    const app = await buildApp({
+      modelProvider: createFakeModelProvider({ reply: 'uno dos tres' }),
+      embedder: createFakeEmbeddingProvider(),
+    });
+    app.addHook('onRequest', async (request) => {
+      requestActual = request;
+    });
+
+    vi.spyOn(app, 'userClient').mockReturnValue(clienteFalso([]) as never);
+    vi.spyOn(app, 'readAssistantConfig').mockResolvedValue({
+      system_prompt: 'PROMPT SEMBRADO POR SQL',
+      locale: 'es-MX',
+    });
+    vi.spyOn(app, 'recordAuditEvent').mockImplementation(async (input) => {
+      auditorias.push({ action: input.action });
+    });
+    vi.spyOn(app, 'insertAssistantMessage').mockResolvedValue({ id: 'msg-assistant' });
+
+    vi.mocked(retrieve).mockImplementationOnce(async () => {
+      // El mismo 'close' que la ruta escucha para abortar el controller.
+      requestActual!.raw.emit('close');
+      throw new Error('abortado');
+    });
+
+    await app.ready();
+
+    await app.inject({
+      method: 'POST',
+      url: URL_MSG,
+      headers: { authorization: 'Bearer t' },
+      payload: { content: '¿Qué ofrecen?' },
+    });
+
+    await app.close();
+
+    expect(auditorias.map((a) => a.action)).not.toContain('rag.retrieval.failed');
   });
 
   it('persiste las secciones completas en sources', async () => {
