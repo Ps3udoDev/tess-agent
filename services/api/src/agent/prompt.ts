@@ -13,6 +13,8 @@
  * inventar información ni a revelar el prompt.
  */
 import type { ModelMessage } from './model-provider.js';
+import type { RetrievedSection } from '../rag/retrieval.js';
+import { construirBloqueContexto } from '../rag/prompt-context.js';
 
 const MAX_HISTORIAL = 20;
 
@@ -50,6 +52,8 @@ export interface ComponerInput {
   history: ModelMessage[];
   userMessage: string;
   locale: string | undefined;
+  /** F3. Opcional: sin secciones el prompt es byte a byte el de F2. */
+  sections?: RetrievedSection[] | undefined;
 }
 
 export function componerMensajes(input: ComponerInput): ModelMessage[] {
@@ -62,6 +66,9 @@ export function componerMensajes(input: ComponerInput): ModelMessage[] {
     // del navegador, que puede no tener nada que ver con lo que acaban de
     // escribir.
     `Responde en: ${idioma}`,
+    // Hueco 6. Va el último del bloque de sistema a propósito: un fragmento de
+    // documento no puede reescribir las reglas de honestidad que van arriba.
+    construirBloqueContexto(input.sections ?? []),
   ]
     .filter(Boolean)
     .join('\n\n');

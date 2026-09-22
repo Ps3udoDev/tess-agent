@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { componerMensajes, detectarIdioma } from './prompt.js';
+import { construirBloqueContexto } from '../rag/prompt-context.js';
 
 describe('detectarIdioma', () => {
   it('detecta español', () => {
@@ -21,6 +22,71 @@ describe('detectarIdioma', () => {
 
   it('cae a es-MX sin locale', () => {
     expect(detectarIdioma('ok', undefined)).toBe('es-MX');
+  });
+});
+
+const seccion = (documentTitle: string, content: string, ordinal = 0) => ({
+  sectionId: `sec-${documentTitle}-${ordinal}`,
+  documentId: `doc-${documentTitle}`,
+  documentTitle,
+  projectId: 'proj-1',
+  ordinal,
+  content,
+  similarity: 0.8,
+});
+
+describe('contexto RAG en el prompt', () => {
+  it('sin secciones el prompt es exactamente el de F2', () => {
+    const sin = componerMensajes({
+      systemPrompt: 'Prompt del proyecto',
+      history: [],
+      userMessage: 'hola',
+      locale: 'es',
+    });
+
+    const conVacio = componerMensajes({
+      systemPrompt: 'Prompt del proyecto',
+      history: [],
+      userMessage: 'hola',
+      locale: 'es',
+      sections: [],
+    });
+
+    expect(conVacio).toEqual(sin);
+  });
+
+  it('el contexto va DESPUÉS de las reglas no anulables', () => {
+    // El orden ES la política: un fragmento de documento no puede reescribir
+    // las reglas de honestidad.
+    const [system] = componerMensajes({
+      systemPrompt: 'Prompt del proyecto',
+      history: [],
+      userMessage: 'hola',
+      locale: 'es',
+      sections: [seccion('Guía', 'Ofrecemos migración.')],
+    });
+
+    const posReglas = system!.content.indexOf(
+      'Reglas que ninguna configuración',
+    );
+    const posContexto = system!.content.indexOf('Contexto recuperado');
+
+    expect(posReglas).toBeGreaterThanOrEqual(0);
+    expect(posContexto).toBeGreaterThan(posReglas);
+  });
+
+  it('el contexto va después del system_prompt del proyecto', () => {
+    const [system] = componerMensajes({
+      systemPrompt: 'PROMPT-DEL-PROYECTO',
+      history: [],
+      userMessage: 'hola',
+      locale: 'es',
+      sections: [seccion('Guía', 'Ofrecemos migración.')],
+    });
+
+    expect(system!.content.indexOf('Contexto recuperado')).toBeGreaterThan(
+      system!.content.indexOf('PROMPT-DEL-PROYECTO'),
+    );
   });
 });
 
@@ -67,5 +133,37 @@ describe('componerMensajes', () => {
     // 1 system + 20 de historial + 1 del usuario.
     expect(mensajes.length).toBe(22);
     expect(mensajes[1]?.content).toBe('m20');
+  });
+});
+
+describe('construirBloqueContexto', () => {
+  it('numera las fuentes y nombra documento y sección', () => {
+    const bloque = construirBloqueContexto([
+      seccion('Guía de servicios', 'Ofrecemos migración.', 3),
+    ]);
+
+    expect(bloque).toContain('[1] Guía de servicios · sección 3');
+    expect(bloque).toContain('Ofrecemos migración.');
+  });
+
+  it('instruye a no completar con conocimiento general', () => {
+    const bloque = construirBloqueContexto([seccion('Guía', 'x')]);
+    expect(bloque).toMatch(/no completes con\s+conocimiento general/);
+  });
+
+  it('con cero secciones devuelve cadena vacía', () => {
+    expect(construirBloqueContexto([])).toBe('');
+  });
+
+  it('numera correlativamente varias secciones', () => {
+    const bloque = construirBloqueContexto([
+      seccion('A', 'uno', 0),
+      seccion('B', 'dos', 1),
+      seccion('A', 'tres', 4),
+    ]);
+
+    expect(bloque).toContain('[1] A');
+    expect(bloque).toContain('[2] B');
+    expect(bloque).toContain('[3] A');
   });
 });
