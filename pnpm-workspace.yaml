@@ -56,6 +56,7 @@ catalog:
   zod: ^4.6.5
   pino: ^10.3.1
   dotenv: ^18.0.1
+  pdf-parse: ^2.4.5
 
   # Observabilidad
   '@sentry/sveltekit': ^10.75.0
