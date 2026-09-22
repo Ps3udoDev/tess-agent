@@ -17,6 +17,7 @@
  *   - leer project_widget_settings        · se lee antes de que exista el JWT
  *   - leer assistant_configs              · el prompt no debe ser legible vía RLS
  *   - subir a Storage                     · bucket privado, lo lee el worker
+ *   - marcar un documento como failed     · 0015 no da update a authenticated
  */
 import fp from 'fastify-plugin';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
@@ -303,6 +304,27 @@ async function plugin(app: FastifyInstance): Promise<void> {
     },
   );
 
+  /**
+   * Marca un documento como fallido tras un error de Storage.
+   *
+   * Con service_role porque 0015 NO da `update` a `authenticated`: si lo
+   * diera, un miembro podría marcar su propio documento como 'ready' sin que
+   * el worker lo hubiera procesado nunca. Este es el único update legítimo
+   * que nace en el API en vez de en el worker, y por eso vive aquí y no en
+   * `documents.route.ts` con el cliente del usuario.
+   */
+  app.decorate(
+    'marcarDocumentoFallido',
+    async (input: { documentId: string; razon: string }): Promise<void> => {
+      const { error } = await serviceClient
+        .from('documents')
+        .update({ status: 'failed', failure_reason: input.razon })
+        .eq('id', input.documentId);
+
+      if (error) app.log.error({ err: error.message }, 'fallo al marcar el documento como failed');
+    },
+  );
+
   app.decorate('listWidgetOrigins', async (): Promise<string[]> => {
     const { data } = await serviceClient
       .from('project_widget_settings')
@@ -336,5 +358,6 @@ declare module 'fastify' {
       contenido: Buffer;
       contentType: string;
     }): Promise<void>;
+    marcarDocumentoFallido(input: { documentId: string; razon: string }): Promise<void>;
   }
 }

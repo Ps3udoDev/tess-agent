@@ -4,6 +4,7 @@
  * Requieren `supabase start`. Se saltan si no hay base disponible, para que
  * un `pnpm test` sin Docker no falle por algo que no es un bug.
  */
+import { randomUUID } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { buildApp } from './app.js';
@@ -28,6 +29,8 @@ let conversacionAjena = '';
 let conversacionB = '';
 let clienteMiembroA: SupabaseClient;
 let clienteMiembroB: SupabaseClient;
+let miembroAId = '';
+let miembroBId = '';
 let conversacionA = '';
 
 async function crearProyecto(slug: string, conWidget: boolean) {
@@ -179,6 +182,8 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
     const miembroB = await crearMiembro('miembro-b', b.orgId);
     clienteMiembroA = miembroA.client;
     clienteMiembroB = miembroB.client;
+    miembroAId = miembroA.id;
+    miembroBId = miembroB.id;
 
     // Conversaciones REALES en cada proyecto. El test de cruce de tenants
     // comprobaba `toHaveLength(0)` contra un proyecto B que nunca tuvo filas:
@@ -456,6 +461,63 @@ describe.runIf(supabaseDisponible)('RLS contra Supabase local', () => {
       } finally {
         await app.close();
       }
+    });
+  });
+
+  describe('RLS: insercion de documentos (0015)', () => {
+    /** Una fila de subida válida, tal cual la construye documents.route.ts. */
+    function filaValida(projectId: string, orgId: string, userId: string) {
+      const id = randomUUID();
+      return {
+        id,
+        organization_id: orgId,
+        project_id: projectId,
+        title: 'Documento subido en el test',
+        source: 'upload',
+        storage_bucket: 'tess-documents',
+        storage_path: `${orgId}/${projectId}/${id}/prueba.md`,
+        mime_type: 'text/markdown',
+        byte_size: 5,
+        status: 'pending',
+        created_by: userId,
+      };
+    }
+
+    it('un miembro inserta un documento pending válido', async () => {
+      const { error } = await clienteMiembroA
+        .from('documents')
+        .insert(filaValida(proyectoA, orgA, miembroAId));
+
+      expect(error).toBeNull();
+    });
+
+    it('un no miembro NO puede insertar', async () => {
+      const { error } = await clienteMiembroB
+        .from('documents')
+        .insert(filaValida(proyectoA, orgA, miembroBId));
+
+      expect(error).not.toBeNull();
+    });
+
+    it("un miembro NO puede insertar con status 'ready'", async () => {
+      // Ese es justo el salto que 0015 tiene que impedir: nadie que no sea el
+      // worker (con service_role) puede saltarse el pending -> processing ->
+      // ready.
+      const fila = { ...filaValida(proyectoA, orgA, miembroAId), status: 'ready' };
+      const { error } = await clienteMiembroA.from('documents').insert(fila);
+
+      expect(error).not.toBeNull();
+    });
+
+    it('un miembro NO puede insertar con un storage_path de otro prefijo', async () => {
+      // El check por prefijo es lo que impide que un insert directo por
+      // PostgREST apunte al objeto de otro tenant, que el worker luego
+      // descargaría con service_role.
+      const fila = filaValida(proyectoA, orgA, miembroAId);
+      fila.storage_path = `${orgB}/${proyectoB}/${fila.id}/prueba.md`;
+      const { error } = await clienteMiembroA.from('documents').insert(fila);
+
+      expect(error).not.toBeNull();
     });
   });
 });
