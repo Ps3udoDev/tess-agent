@@ -1,7 +1,5 @@
 <script lang="ts">
   import { env } from '$env/dynamic/public';
-  import { onMount } from 'svelte';
-  import { Tess } from '@teams4soft/tess-svelte';
   import '@teams4soft/tess-web-component';
   import {
     ASSISTANT_STATES,
@@ -17,37 +15,6 @@
   const PUBLIC_TESS_API_URL = env.PUBLIC_TESS_API_URL ?? 'http://localhost:8080';
   const PUBLIC_TESS_PROJECT_ID = env.PUBLIC_TESS_PROJECT_ID ?? '';
 
-  let eventos = $state<string[]>([]);
-
-  function registrar(nombre: string, detalle: unknown) {
-    eventos = [...eventos, `${nombre} ${JSON.stringify(detalle)}`].slice(-50);
-  }
-
-  onMount(() => {
-    const el = document.querySelector('teams4soft-assistant');
-    if (!el) return;
-    const nombres = [
-      'tess:open',
-      'tess:close',
-      'tess:state',
-      'tess:error',
-      'tess:message',
-      'tess:lead',
-    ];
-
-    const quitar = nombres.map((n) => {
-      const fn = (e: Event) => registrar(n, (e as CustomEvent).detail);
-      el.addEventListener(n, fn);
-      return () => el.removeEventListener(n, fn);
-    });
-
-    return () => quitar.forEach((f) => f());
-  });
-
-  // Nombrada `requestedState`, no `state`: un `let state = $state(...)` colisiona
-  // con la sintaxis legacy de auto-suscripción a stores (`$state` == "el store
-  // `state`, desreferenciado"), y como es la primera rune que el compilador ve,
-  // todavía no ha entrado en modo runes para desambiguar a favor de la rune.
   let requestedState = $state<RequestedState>('idle');
   let theme = $state<TessTheme>('auto');
   let size = $state<TessSize>(96);
@@ -55,11 +22,6 @@
   let mounted = $state(true);
   let log = $state<string[]>([]);
 
-  // Contenedor que envuelve <Tess>: los eventos del custom element burbujean
-  // y son `composed: true`, así que cruzan el shadow DOM y se capturan aquí
-  // con `addEventListener` normal, sin depender de la directiva `on:` (Svelte
-  // 5 en modo runes la desaprobó, y nombres con ':' como `tess:open` no
-  // tienen forma de prop equivalente: no existe `ontess:open`).
   let container = $state<HTMLDivElement>();
 
   function record(event: Event): void {
@@ -68,7 +30,14 @@
     log = [`${stamp}  ${event.type}  ${JSON.stringify(detail ?? {})}`, ...log].slice(0, 30);
   }
 
-  const EVENT_TYPES = ['tess:state', 'tess:error', 'tess:open', 'tess:close'] as const;
+  const EVENT_TYPES = [
+    'tess:state',
+    'tess:error',
+    'tess:open',
+    'tess:close',
+    'tess:message',
+    'tess:lead',
+  ] as const;
 
   $effect(() => {
     const node = container;
@@ -96,28 +65,13 @@
 
 <h1>Tess — panel de pruebas</h1>
 
-<section class="chat-real">
-  <h2>Conversación contra el API local</h2>
-
-  <teams4soft-assistant
-    api-url={PUBLIC_TESS_API_URL}
-    project-id={PUBLIC_TESS_PROJECT_ID}
-    public-key="pk_dev_tess_local_0001"
-    locale="es"
-    size="96"
-    position="bottom-right"
-  ></teams4soft-assistant>
-
-  <h3>Log de eventos SSE</h3>
-  <ol class="log">
-    {#each eventos as evento, i (i)}
-      <li><code>{evento}</code></li>
-    {/each}
-  </ol>
-</section>
+<p>
+  Demostración interactiva de Tess: avatar animado, máquina de estados y chat en tiempo real con
+  streaming SSE y citas RAG contra el API local.
+</p>
 
 <section>
-  <h2>Estado</h2>
+  <h2>Estado del Avatar</h2>
   {#each ASSISTANT_STATES as candidate (candidate)}
     <button
       type="button"
@@ -177,13 +131,23 @@
 </section>
 
 <section>
-  <h2>Eventos ({EVENT_TYPES.length} tipos)</h2>
-  <pre>{log.join('\n') || 'Sin eventos todavía.'}</pre>
+  <h2>Log de eventos en tiempo real ({EVENT_TYPES.length} tipos)</h2>
+  <pre>{log.join('\n') ||
+      'Sin eventos todavía. Abre el asistente haciendo clic en el avatar para iniciar el chat.'}</pre>
 </section>
 
 <div bind:this={container}>
   {#if mounted}
-    <Tess state={requestedState} {theme} {size} {position} />
+    <teams4soft-assistant
+      api-url={PUBLIC_TESS_API_URL}
+      project-id={PUBLIC_TESS_PROJECT_ID}
+      public-key="pk_dev_tess_local_0001"
+      locale="es"
+      {theme}
+      {size}
+      {position}
+      state={requestedState}
+    ></teams4soft-assistant>
   {/if}
 </div>
 
@@ -197,8 +161,7 @@
   label {
     margin-inline-end: 1rem;
   }
-  pre,
-  .log {
+  pre {
     padding: 0.75rem;
     border-radius: 8px;
     background: #11151a;
